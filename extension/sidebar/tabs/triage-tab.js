@@ -174,17 +174,29 @@
         })
       });
       try {
-        B.storage.local.set({ gpd_triage_state: lite });
+        var saved = B.storage.local.set({ gpd_triage_state: lite });
+        if (saved && typeof saved.catch === 'function') saved.catch(function () {});
       } catch (_) {}
     }, 700),
     load: function () {
+      // On Firefox `B` is `browser`, whose storage.local.get takes no callback
+      // and returns a Promise — the callback-only version never fired, so saved
+      // triage state was silently dropped on every load. Promise form first.
       return new Promise(function (resolve) {
+        function apply(r) {
+          if (r && r[STORAGE_KEY]) triage.s = Object.assign(triage.s, r[STORAGE_KEY]);
+          triage.renderAll();
+          resolve();
+        }
         try {
-          B.storage.local.get(STORAGE_KEY, function (r) {
-            if (r && r[STORAGE_KEY]) triage.s = Object.assign(triage.s, r[STORAGE_KEY]);
-            triage.renderAll();
-            resolve();
-          });
+          var maybe = B.storage.local.get(STORAGE_KEY);
+          if (maybe && typeof maybe.then === 'function') {
+            maybe.then(apply, function () { triage.renderAll(); resolve(); });
+            return;
+          }
+        } catch (_) {}
+        try {
+          B.storage.local.get(STORAGE_KEY, apply);
         } catch (_) { triage.renderAll(); resolve(); }
       });
     },

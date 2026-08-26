@@ -280,7 +280,15 @@
         }
         await sendToTab(tab.id, { type: 'TOGGLE_SIDEBAR', payload: { tab: 'tree' } });
         try {
-          B.runtime.sendMessage({ type: 'CRAWL_TREE', payload: { url: tab.url, depth: 3 } });
+          // The popup closes 200 ms later, so this send is fire-and-forget —
+          // its Promise still has to be caught or it lands in the Browser
+          // Console as an unhandled "Receiving end does not exist."
+          var crawlSend = B.runtime.sendMessage({ type: 'CRAWL_TREE', payload: { url: tab.url, depth: 3 } });
+          if (crawlSend && typeof crawlSend.catch === 'function') {
+            crawlSend.catch(function (treeErr) {
+              console.warn('[DANMAN Popup] CRAWL_TREE not delivered:', (treeErr && treeErr.message) || treeErr);
+            });
+          }
         } catch (treeErr) {
           console.error('[DANMAN Popup] Error sending CRAWL_TREE:', treeErr);
         }

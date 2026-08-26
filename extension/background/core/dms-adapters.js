@@ -181,16 +181,12 @@ const DMS_Browser = (function () {
     update:      _p(_B.tabs.update, _B.tabs),
     remove:      _p(_B.tabs.remove, _B.tabs),
     sendMessage: _p(_B.tabs.sendMessage, _B.tabs),
+    // Must go through _p: on Firefox `browser.tabs.captureVisibleTab` returns a
+    // Promise and takes no callback, so the hand-rolled callback version here
+    // never settled and every capture hung. _p tries the Promise form first and
+    // only falls back to callbacks.
     captureVisibleTab: function (windowId, opts) {
-      return new Promise(function (resolve, reject) {
-        try {
-          _B.tabs.captureVisibleTab(windowId, opts || {}, function (dataUrl) {
-            const err = _B.runtime && _B.runtime.lastError;
-            if (err) reject(new Error(err.message || String(err)));
-            else resolve(dataUrl);
-          });
-        } catch (e) { reject(e); }
-      });
+      return _p(_B.tabs.captureVisibleTab, _B.tabs)(windowId, opts || {});
     },
     executeScript: (_B.scripting && _B.scripting.executeScript)
       ? _p(_B.scripting.executeScript, _B.scripting)

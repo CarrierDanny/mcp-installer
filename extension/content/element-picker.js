@@ -22,6 +22,18 @@
   let onPick = null;     // optional callback (also broadcasts via runtime)
   let _lastScreenMoveSent = 0;
 
+  // Fire-and-forget broadcast. `chrome.runtime.sendMessage(msg)` returns a
+  // Promise here (Firefox and Chrome MV3 alike), and a plain try/catch cannot
+  // catch an asynchronous rejection — the dropped Promise surfaced as
+  // "ExtensionError: Could not establish connection. Receiving end does not exist."
+  // once per pick/move event whenever the background was asleep.
+  function _send(msg) {
+    try {
+      var p = chrome.runtime.sendMessage(msg);
+      if (p && typeof p.catch === 'function') p.catch(function () {});
+    } catch (err) {}
+  }
+
   function _screenPointFromEvent(e) {
     var coordMode = (screenOpts && screenOpts.coordMode) || 'precise';
     return {
@@ -127,7 +139,7 @@
       attrs: _attrs(e.target),
       rect: e.target.getBoundingClientRect()
     };
-    try { chrome.runtime.sendMessage({ type: 'dms_picker_picked', info }); } catch (err) {}
+    _send({ type: 'dms_picker_picked', info });
     if (typeof onPick === 'function') { try { onPick(info); } catch (err) {} }
     stop();
   }
@@ -139,7 +151,7 @@
       var wasScreen = mode === 'screen';
       stop();
       if (wasScreen) {
-        try { chrome.runtime.sendMessage({ type: 'SCREEN_PICK_CANCELLED' }); } catch (err) {}
+        _send({ type: 'SCREEN_PICK_CANCELLED' });
       }
     }
   }
@@ -172,7 +184,7 @@
     var now = Date.now();
     if (now - _lastScreenMoveSent < 40) return;
     _lastScreenMoveSent = now;
-    try { chrome.runtime.sendMessage({ type: 'dms_screen_pick_move', info: pt }); } catch (err) {}
+    _send({ type: 'dms_screen_pick_move', info: pt });
   }
 
   function _onScreenClick(e) {
@@ -184,7 +196,7 @@
     e.stopPropagation();
     var info = _screenPointFromEvent(e);
     info.button = 'left';
-    try { chrome.runtime.sendMessage({ type: 'dms_screen_picked', info: info }); } catch (err) {}
+    _send({ type: 'dms_screen_picked', info: info });
     stop();
   }
 

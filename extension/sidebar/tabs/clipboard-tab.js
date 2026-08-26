@@ -240,12 +240,46 @@
   // SYSTEM CLIPBOARD READING
   // ============================================================================
 
-  async function readSystemClipboard() {
+  /** True while the user is typing into a field somewhere in this document. */
+  function isEditingText() {
+    try {
+      var el = document.activeElement;
+      if (!el) return false;
+      var tag = (el.tagName || '').toUpperCase();
+      if (tag === 'TEXTAREA') return true;
+      if (tag === 'INPUT') {
+        var textTypes = ['text', 'email', 'password', 'search', 'url', 'tel', 'number', ''];
+        return textTypes.indexOf((el.type || 'text').toLowerCase()) !== -1;
+      }
+      if (el.isContentEditable) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  /**
+   * Read the OS clipboard.
+   *
+   * The execCommand fallback has to focus a scratch <textarea>, which steals
+   * focus from whatever the user is typing into. That is fine for a read the
+   * user just asked for, and unacceptable for the 1.5 s background poll — it
+   * used to yank the caret out of the DANMAN chat box (same document) mid-word
+   * every time navigator.clipboard.readText() was denied. So the fallback is
+   * opt-in, and it puts focus and selection back where it found them.
+   */
+  async function readSystemClipboard(allowFocusFallback) {
     try {
       var text = await navigator.clipboard.readText();
       return text || '';
     } catch (err) {
+      if (!allowFocusFallback) return '';
       console.warn('[DANMAN Clipboard] navigator.clipboard.readText failed:', err.message);
+      var previous = document.activeElement;
+      var prevStart = null;
+      var prevEnd = null;
+      try {
+        prevStart = previous.selectionStart;
+        prevEnd = previous.selectionEnd;
+      } catch (_) {}
       try {
         var textarea = document.createElement('textarea');
         textarea.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
@@ -258,6 +292,15 @@
       } catch (fallbackErr) {
         console.warn('[DANMAN Clipboard] execCommand paste fallback failed:', fallbackErr.message);
         return '';
+      } finally {
+        try {
+          if (previous && previous !== document.body && document.body.contains(previous)) {
+            previous.focus();
+            if (prevStart !== null && prevEnd !== null && previous.setSelectionRange) {
+              previous.setSelectionRange(prevStart, prevEnd);
+            }
+          }
+        } catch (_) {}
       }
     }
   }
@@ -298,7 +341,12 @@
   // ============================================================================
 
   async function pollClipboard() {
-    var current = await readSystemClipboard();
+    // Never poll over the user's shoulder: a poll that reaches the
+    // execCommand fallback moves focus, and a clipboard read prompt on top of
+    // a half-typed message is just as disruptive. Typing wins; the next tick
+    // (or a copy event, which we also listen for) picks the clip up.
+    if (isEditingText() || document.hidden || !document.hasFocus()) return;
+    var current = await readSystemClipboard(false);
     if (current && current !== lastClipboardText) {
       lastClipboardText = current;
       var changed = cascadeNewContent(current);

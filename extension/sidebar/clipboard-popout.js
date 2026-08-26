@@ -10,6 +10,17 @@
     return B.runtime.sendMessage({ type: type, payload: payload || {} });
   }
 
+  // Fire-and-forget variant. Without it, every send whose result nobody awaits
+  // leaves an unhandled rejection when the background is asleep or the message
+  // has no receiver — which the Browser Console prints as
+  // "ExtensionError: Could not establish connection. Receiving end does not exist."
+  function sendQuiet(type, payload) {
+    try {
+      var p = send(type, payload);
+      if (p && typeof p.catch === 'function') p.catch(function () {});
+    } catch (_) {}
+  }
+
   function esc(t) {
     var d = document.createElement('div');
     d.textContent = t || '';
@@ -47,7 +58,7 @@
         var slot = slots[idx];
         if (!slot || !slot.content) return;
         navigator.clipboard.writeText(slot.content).catch(function () {});
-        send('CLIPBOARD_PASTE_TO_PAGE', { content: slot.content, slotId: slot.id });
+        sendQuiet('CLIPBOARD_PASTE_TO_PAGE', { content: slot.content, slotId: slot.id });
       });
     });
   }
@@ -75,7 +86,7 @@
   });
   document.getElementById('stay-on-top').addEventListener('change', function (e) {
     stayOnTop = e.target.checked;
-    send('CLIPBOARD_POPOUT_PIN', { pinned: stayOnTop });
+    sendQuiet('CLIPBOARD_POPOUT_PIN', { pinned: stayOnTop });
     if (stayOnTop) scheduleRefocus();
     else if (refocusTimer) { clearInterval(refocusTimer); refocusTimer = null; }
   });
@@ -84,12 +95,12 @@
     if (refocusTimer) clearInterval(refocusTimer);
     if (!stayOnTop) return;
     refocusTimer = setInterval(function () {
-      send('CLIPBOARD_POPOUT_FOCUS', {});
+      sendQuiet('CLIPBOARD_POPOUT_FOCUS', {});
     }, 2500);
   }
 
   window.addEventListener('blur', function () {
-    if (stayOnTop) setTimeout(function () { send('CLIPBOARD_POPOUT_FOCUS', {}); }, 120);
+    if (stayOnTop) setTimeout(function () { sendQuiet('CLIPBOARD_POPOUT_FOCUS', {}); }, 120);
   });
 
   load();

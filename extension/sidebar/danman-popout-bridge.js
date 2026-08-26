@@ -3,6 +3,43 @@
   'use strict';
   var B = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
 
+  // One send attempt, normalized to a Promise.
+  //
+  // Firefox's `browser.runtime.sendMessage` is (message, options) -> Promise:
+  // it has no callback parameter and no `browser.runtime.lastError`. The old
+  // callback-only implementation therefore never resolved on Firefox *and*
+  // dropped the returned Promise, which the Browser Console reports as an
+  // unhandled "ExtensionError: Could not establish connection. Receiving end
+  // does not exist." every time the popout sent a chat message. Prefer the
+  // Promise form; fall back to callbacks only for engines that return a
+  // non-thenable.
+  function sendOnce(msg) {
+    return new Promise(function (resolve, reject) {
+      var maybe;
+      try {
+        maybe = B.runtime.sendMessage(msg);
+      } catch (e) {
+        reject(e);
+        return;
+      }
+      if (maybe && typeof maybe.then === 'function') {
+        maybe.then(resolve, function (e) {
+          reject(e instanceof Error ? e : new Error((e && e.message) || String(e)));
+        });
+        return;
+      }
+      try {
+        B.runtime.sendMessage(msg, function (resp) {
+          var err = B.runtime.lastError;
+          if (err) return reject(new Error(err.message || String(err)));
+          resolve(resp);
+        });
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
   function sendBg(type, payload) {
     var msg = { type: type, payload: payload || {} };
     var maxAttempts = 4;
@@ -12,23 +49,16 @@
         var attempt = 0;
         function trySend() {
           attempt += 1;
-          try {
-            B.runtime.sendMessage(msg, function (resp) {
-              var err = B.runtime.lastError;
-              if (err) {
-                var errText = err.message || String(err);
-                if (/establish connection|Receiving end does not exist|message port closed/i.test(errText) && attempt < maxAttempts) {
-                  return setTimeout(trySend, 300 * attempt);
-                }
-                return reject(new Error(errText));
-              }
-              if (resp && resp.error) return reject(new Error(resp.error));
-              resolve(resp || {});
-            });
-          } catch (e) {
-            if (attempt < maxAttempts) return setTimeout(trySend, 300 * attempt);
-            reject(e);
-          }
+          sendOnce(msg).then(function (resp) {
+            if (resp && resp.error) return reject(new Error(resp.error));
+            resolve(resp || {});
+          }, function (err) {
+            var errText = (err && err.message) || String(err);
+            if (/establish connection|Receiving end does not exist|message port closed/i.test(errText) && attempt < maxAttempts) {
+              return setTimeout(trySend, 300 * attempt);
+            }
+            reject(err instanceof Error ? err : new Error(errText));
+          });
         }
         trySend();
       });

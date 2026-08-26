@@ -641,12 +641,42 @@
     }
   }
 
+  /**
+   * True when the caret is (or may be) sitting in a text field.
+   *
+   * A focused IFRAME counts: from here `document.activeElement` is the frame
+   * element itself and we cannot see which field inside it has focus — and one
+   * of those frames is DANMAN's own sidebar/float panel, which is exactly where
+   * the chat box lives. Standing down for focused frames costs an occasional
+   * poll tick; not standing down costs the user keystrokes.
+   */
+  function isEditingText() {
+    try {
+      var el = document.activeElement;
+      if (!el) return false;
+      var tag = (el.tagName || '').toUpperCase();
+      if (tag === 'IFRAME' || tag === 'FRAME') return true;
+      return isElementEditable(el);
+    } catch (_) {
+      return false;
+    }
+  }
+
   // Global poll so AHK clipboard writes sync across tabs even without copy events
-  // (text + images via pollSystemClipboard)
+  // (text + images via pollSystemClipboard).
+  //
+  // The poll stands down while the user is typing: navigator.clipboard.read()
+  // is a user-visible operation (Firefox can surface a paste prompt for it) and
+  // firing it every 2 s into a focused input is exactly the interference this
+  // listener is supposed to stay out of. Copy/cut/paste events still capture
+  // normally while typing, and the poll resumes the moment focus leaves the
+  // field. Explicit CLIPBOARD_FORCE_POLL requests are unaffected — those are
+  // user-initiated.
   function startGlobalClipboardPoll() {
     if (globalPollId) return;
     globalPollId = setInterval(function () {
-      if (document.hidden) return;
+      if (document.hidden || !document.hasFocus()) return;
+      if (isEditingText()) return;
       pollSystemClipboard('global-poll');
     }, 2000);
   }

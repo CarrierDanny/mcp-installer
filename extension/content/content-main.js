@@ -16,6 +16,33 @@
   let hoverPanelTimer = null;
 
   // ============================================================
+  // MESSAGING
+  // ============================================================
+  /**
+   * Fire-and-forget message to the background.
+   *
+   * `chrome.runtime.sendMessage(msg)` returns a Promise on both Firefox and
+   * Chrome MV3. Dropping that Promise leaves an unhandled rejection whenever
+   * the background is asleep or the message has no receiver, which the
+   * Browser Console reports as
+   * "ExtensionError: Could not establish connection. Receiving end does not exist."
+   * A bare try/catch does NOT catch it — the failure is asynchronous. Every
+   * send whose result we do not await must go through here.
+   */
+  function safeSend(message) {
+    try {
+      const p = chrome.runtime.sendMessage(message);
+      if (p && typeof p.catch === 'function') {
+        p.catch((err) => {
+          console.debug('[DANMAN] send skipped:', message && message.type, (err && err.message) || err);
+        });
+      }
+    } catch (err) {
+      console.debug('[DANMAN] send skipped:', message && message.type, (err && err.message) || err);
+    }
+  }
+
+  // ============================================================
   // TRIGGER BUTTON
   // ============================================================
   function createTriggerButton() {
@@ -171,7 +198,7 @@
         btn.addEventListener('mouseleave', () => { btn.style.borderColor = '#1e293b'; });
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          chrome.runtime.sendMessage({ type: 'CLIPBOARD_PASTE_TO_PAGE', payload: { slotIndex: i } });
+          safeSend({ type: 'CLIPBOARD_PASTE_TO_PAGE', payload: { slotIndex: i } });
           logClipboardEvent('info', 'HOVER_PASTE_SLOT', 'Paste slot ' + (i + 1), { slot: i + 1, type: slot.contentType || 'text' });
           cancelHoverPanel();
         });
@@ -198,9 +225,9 @@
             logClipboardEvent('error', 'HOVER_REFRESH_FAIL', e.message || String(e));
           }
         } },
-      { label: 'Record pick', fn: () => chrome.runtime.sendMessage({ type: 'CONTEXT_MACRO_RECORD_PICK' }) },
-      { label: 'Macro run', fn: () => chrome.runtime.sendMessage({ type: 'MACRO_RUN', payload: {} }) },
-      { label: 'Pause', fn: () => chrome.runtime.sendMessage({ type: 'MACRO_PAUSE' }) }
+      { label: 'Record pick', fn: () => safeSend({ type: 'CONTEXT_MACRO_RECORD_PICK' }) },
+      { label: 'Macro run', fn: () => safeSend({ type: 'MACRO_RUN', payload: {} }) },
+      { label: 'Pause', fn: () => safeSend({ type: 'MACRO_PAUSE' }) }
     ].forEach((a) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -743,7 +770,7 @@
       case 'DO_SCRAPE_PAGE': {
         const data = scrapeCurrentPage();
         // Send result back to service worker
-        chrome.runtime.sendMessage({ type: 'SCRAPE_RESULT', payload: data });
+        safeSend({ type: 'SCRAPE_RESULT', payload: data });
         // Also forward to sidebar
         if (sidebarFrame?.contentWindow) {
           sidebarFrame.contentWindow.postMessage({ type: 'GPD_SCRAPE_RESULT', data }, '*');
@@ -753,7 +780,7 @@
       }
       case 'DO_EXTRACT_LINKS': {
         const data = extractLinksFromPage();
-        chrome.runtime.sendMessage({ type: 'LINKS_RESULT', payload: data });
+        safeSend({ type: 'LINKS_RESULT', payload: data });
         if (sidebarFrame?.contentWindow) {
           sidebarFrame.contentWindow.postMessage({ type: 'GPD_LINKS_RESULT', data }, '*');
         }
@@ -762,7 +789,7 @@
       }
       case 'DO_SCAN_FORMS': {
         const data = scanFormsOnPage();
-        chrome.runtime.sendMessage({ type: 'FORMS_RESULT', payload: data });
+        safeSend({ type: 'FORMS_RESULT', payload: data });
         if (sidebarFrame?.contentWindow) {
           sidebarFrame.contentWindow.postMessage({ type: 'GPD_FORMS_RESULT', data }, '*');
         }
@@ -959,7 +986,7 @@
       case 'GPD_REQUEST_SCRAPE': {
         const data = scrapeCurrentPage();
         sidebarFrame.contentWindow.postMessage({ type: 'GPD_SCRAPE_RESULT', data }, '*');
-        chrome.runtime.sendMessage({ type: 'SCRAPE_RESULT', payload: data });
+        safeSend({ type: 'SCRAPE_RESULT', payload: data });
         break;
       }
       case 'GPD_SIDEBAR_PICK_START':
@@ -972,13 +999,13 @@
       case 'GPD_REQUEST_LINKS': {
         const data = extractLinksFromPage();
         sidebarFrame.contentWindow.postMessage({ type: 'GPD_LINKS_RESULT', data }, '*');
-        chrome.runtime.sendMessage({ type: 'LINKS_RESULT', payload: data });
+        safeSend({ type: 'LINKS_RESULT', payload: data });
         break;
       }
       case 'GPD_REQUEST_FORMS': {
         const data = scanFormsOnPage();
         sidebarFrame.contentWindow.postMessage({ type: 'GPD_FORMS_RESULT', data }, '*');
-        chrome.runtime.sendMessage({ type: 'FORMS_RESULT', payload: data });
+        safeSend({ type: 'FORMS_RESULT', payload: data });
         break;
       }
       case 'GPD_REQUEST_EMAIL': {
@@ -1038,7 +1065,7 @@
   function checkEmailContext() {
     const provider = detectEmailContext();
     if (provider) {
-      chrome.runtime.sendMessage({ type: 'LOG_ACTION', payload: {
+      safeSend({ type: 'LOG_ACTION', payload: {
         action: 'EMAIL_DETECTED', detail: `Email provider: ${provider}`, data: { provider }
       }});
     }

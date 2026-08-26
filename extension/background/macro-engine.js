@@ -32,7 +32,15 @@ const DMS_MacroEngine = (function () {
   function on(fn) { eventListeners.add(fn); return () => eventListeners.delete(fn); }
   function _emit(evt) {
     for (const fn of eventListeners) { try { fn(evt); } catch (e) {} }
-    try { chrome.runtime.sendMessage({ type: 'macro_event', event: evt }); } catch (e) {}
+    // Best-effort broadcast to whichever extension page is listening. The
+    // Promise must be caught: a plain try/catch cannot catch an asynchronous
+    // rejection, so with no sidebar/Studio page open every emitted event left
+    // an unhandled "Could not establish connection. Receiving end does not
+    // exist." in the Browser Console.
+    try {
+      const p = chrome.runtime.sendMessage({ type: 'macro_event', event: evt });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (e) {}
   }
 
   function _validateWorkflow(workflow) {

@@ -9,6 +9,18 @@
     var banner = null;
     var lastMouse = { x: 0, y: 0 };
 
+    // Fire-and-forget broadcast. sendMessage returns a Promise here, and a
+    // plain try/catch cannot catch an asynchronous rejection — the dropped
+    // Promise surfaced as "ExtensionError: Could not establish connection.
+    // Receiving end does not exist." once per recorded step whenever the
+    // background was asleep or the Studio tab was closed.
+    function send(msg) {
+      try {
+        var p = chrome.runtime.sendMessage(msg);
+        if (p && typeof p.catch === 'function') p.catch(function () {});
+      } catch (e) {}
+    }
+
     function bestSel(el) {
       try {
         if (window.DMS_Picker && typeof window.DMS_Picker.bestSelector === 'function') {
@@ -25,9 +37,7 @@
     }
 
     function emitStep(step) {
-      try {
-        chrome.runtime.sendMessage({ type: 'dms_recording_step', step: step });
-      } catch (e) {}
+      send({ type: 'dms_recording_step', step: step });
     }
 
     function pushStep(step) {
@@ -145,9 +155,7 @@
       banner.querySelector('[data-act="pause"]').addEventListener('click', function () {
         paused = !paused;
         renderCount();
-        try {
-          chrome.runtime.sendMessage({ type: 'dms_recording_paused', paused: paused });
-        } catch (e) {}
+        send({ type: 'dms_recording_paused', paused: paused });
       });
       return banner;
     }
@@ -199,9 +207,7 @@
         banner = null;
       }
       var captured = steps.slice();
-      try {
-        chrome.runtime.sendMessage({ type: 'dms_recording_finished', steps: captured });
-      } catch (e) {}
+      send({ type: 'dms_recording_finished', steps: captured });
       return captured;
     }
 

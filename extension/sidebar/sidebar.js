@@ -98,25 +98,47 @@
         'This page is not running inside the extension — open the sidebar from the DANMAN toolbar button (or reload the add-on via about:debugging).'
       ));
     }
+    // Tag failures with the message type. "Could not establish connection.
+    // Receiving end does not exist." on its own says nothing about which
+    // request died; with the type attached, the console line names it.
+    const tag = (e) => {
+      const text = (e && e.message) ? e.message : String(e || '');
+      const err = new Error(`${msg && msg.type ? msg.type : 'message'}: ${text}`);
+      err.cause = e;
+      return err;
+    };
     return new Promise((resolve, reject) => {
       try {
         const maybe = B.runtime.sendMessage(msg);
         if (maybe && typeof maybe.then === 'function') {
-          maybe.then(resolve).catch(reject);
+          maybe.then(resolve, (e) => reject(tag(e)));
           return;
         }
       } catch (_) {}
       try {
         B.runtime.sendMessage(msg, (resp) => {
           const err = B.runtime.lastError;
-          if (err) return reject(new Error(err.message || String(err)));
+          if (err) return reject(tag(err));
           resolve(resp);
         });
       } catch (e) {
-        reject(e);
+        reject(tag(e));
       }
     });
   }
+
+  // Safety net. Messaging failures whose receiver simply is not open are
+  // expected and non-actionable, but an unhandled rejection for one is
+  // reported by Firefox as an "ExtensionError: Could not establish connection.
+  // Receiving end does not exist." with no hint of where it came from, which
+  // buries the errors that do matter. Keep them at debug level; everything
+  // else still surfaces normally.
+  window.addEventListener('unhandledrejection', (event) => {
+    if (!isBackgroundConnectionError(event.reason)) return;
+    event.preventDefault();
+    console.debug('[DANMAN] background not reachable for a fire-and-forget send:',
+      (event.reason && event.reason.message) || event.reason);
+  });
 
   // Helper: send message to background (port wake + retry for Firefox event background)
   window.sendToBackground = async function(type, payload = {}) {
@@ -132,11 +154,23 @@
         return resp;
       } catch (e) {
         lastErr = e;
-        if (!isBackgroundConnectionError(e) || attempt >= maxAttempts) throw e;
+        if (!isBackgroundConnectionError(e) || attempt >= maxAttempts) {
+          throw isBackgroundConnectionError(e) ? unreachable(type, e, maxAttempts) : e;
+        }
       }
     }
-    throw lastErr || new Error('Background unreachable');
+    throw unreachable(type, lastErr, maxAttempts);
   };
+
+  /** Actionable message for the "background never answered" case. */
+  function unreachable(type, cause, attempts) {
+    const err = new Error(
+      `DANMAN's background script did not answer "${type}" after ${attempts} attempts. ` +
+      'Reload the extension (about:debugging → This Firefox → Reload, or chrome://extensions → Reload) and try again.'
+    );
+    err.cause = cause;
+    return err;
+  }
 
   window.wakeBackgroundViaPort = wakeBackgroundViaPort;
 

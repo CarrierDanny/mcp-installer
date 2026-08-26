@@ -811,7 +811,10 @@ async function handleScrapePage(payload, sender) {
   await Logger.log('SCRAPE_START', `Scraping page`, { url: payload.url });
   // Forward to content script to do the actual DOM scraping
   if (sender.tab) {
-    chrome.tabs.sendMessage(sender.tab.id, { type: 'DO_SCRAPE_PAGE' });
+    // Route through sendMessageToTab: it re-injects the content scripts when
+    // the tab has none (the "Could not establish connection. Receiving end
+    // does not exist." case) and never leaves an unhandled rejection.
+    sendMessageToTab(sender.tab.id, { type: 'DO_SCRAPE_PAGE' }).catch(() => {});
   }
   return { status: 'scraping' };
 }
@@ -831,7 +834,7 @@ async function handleScrapeResult(payload) {
 async function handleExtractLinks(payload, sender) {
   await Logger.log('LINKS_START', 'Extracting links');
   if (sender.tab) {
-    chrome.tabs.sendMessage(sender.tab.id, { type: 'DO_EXTRACT_LINKS' });
+    sendMessageToTab(sender.tab.id, { type: 'DO_EXTRACT_LINKS' }).catch(() => {});
   }
   return { status: 'extracting' };
 }
@@ -852,7 +855,7 @@ async function handleLinksResult(payload) {
 async function handleScanForms(payload, sender) {
   await Logger.log('FORMS_START', 'Scanning forms');
   if (sender.tab) {
-    chrome.tabs.sendMessage(sender.tab.id, { type: 'DO_SCAN_FORMS' });
+    sendMessageToTab(sender.tab.id, { type: 'DO_SCAN_FORMS' }).catch(() => {});
   }
   return { status: 'scanning' };
 }
