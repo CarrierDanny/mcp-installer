@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DANMAN Clipboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a; color: #e2e8f0; height: 100vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    header {
+      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      background: #1e293b; border-bottom: 1px solid #334155; flex-shrink: 0;
+    }
+    header h1 { font-size: 13px; font-weight: 600; flex: 1; color: #38bdf8; }
+    header label { font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    header button {
+      background: #334155; border: none; color: #e2e8f0; border-radius: 4px;
+      padding: 4px 10px; font-size: 11px; cursor: pointer;
+    }
+    header button:hover { background: #475569; }
+    #clip-search {
+      margin: 8px 10px 0; padding: 6px 8px; background: #1e293b;
+      border: 1px solid #334155; border-radius: 4px; color: #e2e8f0; font-size: 12px; outline: none;
+    }
+    #clip-search:focus { border-color: #38bdf8; }
+    #clip-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+    .clip-row {
+      display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+      border-bottom: 1px solid #1e293b; cursor: pointer; font-size: 11px;
+    }
+    .clip-row:hover { background: #1e293b; }
+    .clip-row.frozen { border-left: 2px solid #3b82f6; }
+    .row-num { color: #64748b; min-width: 18px; font-weight: 600; }
+    .row-content { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-ts { color: #64748b; font-size: 10px; }
+    .empty { padding: 24px; text-align: center; color: #64748b; font-size: 12px; }
+    footer {
+      display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid #334155;
+      background: #1e293b; flex-shrink: 0;
+    }
+    footer button {
+      flex: 1; padding: 6px; background: #334155; border: none; color: #94a3b8;
+      border-radius: 4px; font-size: 11px; cursor: pointer;
+    }
+    footer button:hover { color: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Clipboard</h1>
+    <label title="Keeps window focused (best-effort on Windows)">
+      <input type="checkbox" id="stay-on-top"> Stay on top
+    </label>
+    <button type="button" id="btn-dock" title="Dock back to sidebar">Dock</button>
+  </header>
+  <input type="text" id="clip-search" placeholder="Filter clips…" autocomplete="off">
+  <div id="clip-list"></div>
+  <footer>
+    <button type="button" id="btn-refresh">Refresh</button>
+  </footer>
+  <script src="clipboard-popout.js"></script>
+</body>
+</html>

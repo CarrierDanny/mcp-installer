@@ -1,0 +1,129 @@
+{
+  "manifest_version": 3,
+  "name": "GetPower DANMAN",
+  "version": "7.7.0",
+  "description": "Web scraping, link extraction, AI-powered form auto-fill, DANMAN chat with memory retrieval, EJECT pipeline, RAG tree explorer, Google Drive/Sheets integration, and one-click backend setup.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "getpower-danman@danman.dev",
+      "strict_min_version": "113.0"
+    }
+  },
+  "permissions": [
+    "tabs",
+    "storage",
+    "activeTab",
+    "scripting",
+    "clipboardWrite",
+    "clipboardRead",
+    "contextMenus",
+    "alarms"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://api.anthropic.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.openai.com/*",
+    "https://*.salesforce.com/*",
+    "https://*.force.com/*",
+    "https://sheets.googleapis.com/*",
+    "https://www.googleapis.com/*",
+    "https://drive.googleapis.com/*",
+    "https://gmail.googleapis.com/*",
+    "https://script.googleapis.com/*",
+    "https://script.google.com/*",
+    "https://drive.google.com/*",
+    "https://api.firecrawl.dev/*",
+    "https://accounts.google.com/*",
+    "https://oauth2.googleapis.com/*"
+  ],
+  "background": {
+    "scripts": [
+      "background/core/browser.js",
+      "background/core/utils.js",
+      "background/core/dms-utils.js",
+      "core/model-catalog.js",
+      "core/google-ids.js",
+      "background/core/config.js",
+      "background/core/storage.js",
+      "background/core/api.js",
+      "background/core/logger.js",
+      "background/core/drive.js",
+      "background/core/memory.js",
+      "background/core/setup-wizard.js",
+      "background/core/dms-adapters.js",
+      "background/core/master-log.js",
+      "background/core/bridge-registry.js",
+      "background/template-engine.js",
+      "background/ocr-engine.js",
+      "background/gcp-toolkit.js",
+      "background/macro-engine.js",
+      "background/danman-gas-bridge.js",
+      "background/workbench-parser.js",
+      "background/soql-engine.js",
+      "background/service-worker.js"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "content/content-main.js",
+        "content/clipboard-listener.js",
+        "content/element-picker.js",
+        "content/dms-recorder.js",
+        "content/macro-runner.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sidebar/sidebar.html",
+        "sidebar/danman-float.html",
+        "sidebar/danman-float-init.js",
+        "sidebar/danman-popout.html",
+        "sidebar/danman-popout-bridge.js",
+        "sidebar/danman-popout-app.js",
+        "sidebar/clipboard-popout.html",
+        "sidebar/clipboard-popout.js",
+        "lib/pdf.min.js",
+        "lib/pdf.worker.min.js",
+        "data/soql-catalog.json",
+        "cellsforce/*",
+        "icons/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "toggle-sidebar": {
+      "suggested_key": { "default": "Ctrl+Shift+D" },
+      "description": "Toggle DANMAN sidebar"
+    },
+    "toggle-eject": {
+      "suggested_key": { "default": "Ctrl+Shift+E" },
+      "description": "Toggle EJECT panel"
+    }
+  }
+}

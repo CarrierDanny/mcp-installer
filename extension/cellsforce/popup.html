@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>CellsForce v3.2 – DANMAN SOLUTIONS</title>
+    <link rel="stylesheet" href="popup.css" />
+</head>
+
+<body>
+
+    <!-- HEADER -->
+    <div class="cf-header">
+        <div class="cf-header-inner">
+            <div class="cf-brand">
+                <div class="cf-logo-box pulse">&#9880;</div>
+                <div class="cf-brand-text">
+                    <div class="cf-title">Cells<span>Force</span></div>
+                    <div class="cf-sub">Smart Paste &middot; SOQL Builder &middot; Query Library &middot; Email Merge
+                    </div>
+                    <div class="cf-pre">DANMAN SOLUTIONS &mdash; Danny Huynh &nbsp;&bull;&nbsp; Carrier Enterprise, LLC
+                        &nbsp;&bull;&nbsp; API 66.0</div>
+                </div>
+            </div>
+            <div class="cf-header-right">
+                <div class="cf-hbadge">&#9881; v3.2.0 &nbsp;&bull;&nbsp; Firefox MV2</div>
+                <div class="cf-htag">Paste anything. Extract everything.<br />Row by row. Cell by cell. Ready to push.
+                </div>
+                <div class="header-controls-row">
+                    <!-- Always on Top toggle -->
+                    <label class="top-toggle-label">
+                        <input type="checkbox" id="chkAlwaysOnTop" onchange="toggleAlwaysOnTop(this.checked)" />
+                        Always on Top
+                    </label>
+                    <button class="btn btn-ghost btn-sm" id="btnSidebar" onclick="dockToSidebar()"
+                        style="border-color: var(--purple); color: #c4b5fd;">Dock Sidebar 📑</button>
+                    <button class="btn btn-ghost btn-sm" id="btnPopOut" onclick="popOutWindow()"
+                        style="border-color: var(--pa); color: var(--text);">Pop Out ↗</button>
+                    <button class="btn btn-ghost btn-sm" id="btnScreenshot" onclick="takeTabScreenshot()"
+                        style="border-color: var(--green); color: #86efac;">Screenshot 📷</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WIZARD -->
+    <div class="cf-wizard">
+        <button class="cf-step active" id="wiz1" onclick="goStep(1)"><span class="step-num">1</span>Paste &amp;
+            Extract</button>
+        <button class="cf-step" id="wiz2" onclick="goStep(2)"><span class="step-num">2</span>Pick Fields</button>
+        <button class="cf-step" id="wiz3" onclick="goStep(3)"><span class="step-num">3</span>Set Filters</button>
+        <button class="cf-step" id="wiz4" onclick="goStep(4)"><span class="step-num">4</span>Build SOQL</button>
+        <button class="cf-step" id="wiz5" onclick="goStep(5)"><span class="step-num">5</span>Open Workbench</button>
+        <button class="cf-step" id="wiz6" onclick="goStep(6)"><span class="step-num">6</span>Parse Results</button>
+        <button class="cf-step" id="wiz7" onclick="goStep(7)"><span class="step-num">7</span>Email Merge</button>
+    </div>
+
+    <!-- TABS -->
+    <div class="cf-tabs">
+        <button class="cf-tab active" data-t="t-extract" onclick="switchTab('t-extract')">&#9670; Smart Paste</button>
+        <button class="cf-tab" data-t="t-builder" onclick="switchTab('t-builder')">&#9711; SOQL Builder</button>
+        <button class="cf-tab" data-t="t-library" onclick="switchTab('t-library')">&#128218; Query Library</button>
+        <button class="cf-tab" data-t="t-soql" onclick="switchTab('t-soql')">&#128203; SOQL Templates</button>
+        <button class="cf-tab" data-t="t-triage" onclick="switchTab('t-triage')">&#128206; Case Triage</button>
+        <button class="cf-tab" data-t="t-parse" onclick="switchTab('t-parse')">&#128202; Parse Results</button>
+        <button class="cf-tab" data-t="t-table" onclick="switchTab('t-table')">&#9632; Data Table</button>
+        <button class="cf-tab" data-t="t-email" onclick="switchTab('t-email')">&#9733; Email Merge</button>
+        <button class="cf-tab" data-t="t-settings" onclick="switchTab('t-settings')">&#9783; Settings</button>
+    </div>
+
+    <!-- ══════════ TAB 1: SMART PASTE ENGINE ══════════ -->
+    <div id="t-extract" class="cf-panel active">
+
+        <div class="info-box orange">
+            &#9642; <strong>Step 1 &mdash; Paste ANYTHING here.</strong>
+            CellsForce extracts Case Numbers, Account Numbers, Salesforce IDs, emails, and phones from any raw text —
+            emails, reports, web pages, copy-paste from any screen.
+            Drop a <strong>screenshot</strong> to detect column headers for your query.
+        </div>
+
+        <div class="spe-wrap">
+
+            <!-- LEFT COL -->
+            <div class="spe-input-col">
+
+                <div class="cf-card ao" style="margin-bottom:0;flex:1;display:flex;flex-direction:column;">
+                    <h2>&#128203; Paste Text &mdash; Any Format <span class="cf-badge o">Step 1</span></h2>
+                    <textarea class="spe-textarea" id="speInput" rows="12"
+                        placeholder="Paste ANYTHING here:&#10;&#10;  Email bodies with case numbers&#10;  Copy from a Salesforce page or report&#10;  CSV / TSV export rows&#10;  A list of IDs, account numbers, or addresses&#10;  JSON from REST API&#10;  Free-form notes with numbers scattered throughout&#10;&#10;CellsForce will find what matters automatically."
+                        oninput="liveExtract()"></textarea>
+                    <div class="btn-row">
+                        <button class="btn btn-orange" onclick="runExtract()">&#9670; Extract &amp; Analyse</button>
+                        <button class="btn btn-ghost btn-sm" onclick="clearSPE()">&#128465; Clear</button>
+                        <button class="btn btn-ghost btn-sm" onclick="pasteSPE()">&#128203; Paste Clipboard</button>
+                        <button class="btn btn-ghost btn-sm" onclick="loadSPESample()">&#128194; Sample</button>
+                    </div>
+                </div>
+
+                <div class="cf-card ao" style="margin-bottom:0;">
+                    <h2>&#128247; Screenshot / Image Drop <span class="cf-badge o">Column Detect</span></h2>
+                    <div class="spe-drop-zone" id="imgDropZone" ondrop="handleImgDrop(event)"
+                        ondragover="event.preventDefault();this.classList.add('drag-over')"
+                        ondragleave="this.classList.remove('drag-over')"
+                        onclick="document.getElementById('imgFileInput').click()">
+                        <div class="dz-icon">&#128247;</div>
+                        <strong>Drop screenshot here or click to browse</strong>
+                        <p>PNG, JPG, GIF &mdash; DANMAN detects column headers from the image</p>
+                    </div>
+                    <input type="file" id="imgFileInput" accept="image/*" style="display:none"
+                        onchange="handleImgFile(event)" />
+                    <div id="imgPreviewWrap" style="display:none;margin-top:8px;">
+                        <div class="img-preview-wrap" id="imgPreview"></div>
+                        <div class="btn-row">
+                            <button class="btn btn-orange btn-sm" onclick="extractFromImage()">&#9670; Detect
+                                Columns</button>
+                            <button class="btn btn-ghost  btn-sm" onclick="clearImg()">&#128465; Clear</button>
+                        </div>
+                    </div>
+                    <div id="colDetectResults" style="display:none;margin-top:8px;">
+                        <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+            color:var(--muted);margin-bottom:5px;">Detected Columns (click to toggle for SOQL):</div>
+                        <div id="colChips" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
+                        <div class="btn-row">
+                            <button class="btn btn-orange btn-sm" onclick="useDetectedColumns()">&#8594; Use in SOQL
+                                Builder</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- end left -->
+
+            <!-- RIGHT COL -->
+            <div class="spe-output-col">
+
+                <!-- Extraction mode -->
+                <div class="cf-card ao" style="margin-bottom:0;padding:10px;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                        <span
+                            style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;">Extract:</span>
+                        <label
+                            style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:#fde68a;text-transform:none;letter-spacing:0;cursor:pointer;">
+                            <input type="checkbox" id="exCaseNums" checked onchange="runExtract()"> Case Nums</label>
+                        <label
+                            style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:#86efac;text-transform:none;letter-spacing:0;cursor:pointer;">
+                            <input type="checkbox" id="exAcctNums" checked onchange="runExtract()"> Acct Nums</label>
+                        <label
+                            style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:#67e8f9;text-transform:none;letter-spacing:0;cursor:pointer;">
+                            <input type="checkbox" id="exSFIds" checked onchange="runExtract()"> SF IDs</label>
+                        <label
+                            style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:#c4b5fd;text-transform:none;letter-spacing:0;cursor:pointer;">
+                            <input type="checkbox" id="exEmails" onchange="runExtract()"> Emails</label>
+                        <label
+                            style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:#fca5a5;text-transform:none;letter-spacing:0;cursor:pointer;">
+                            <input type="checkbox" id="exPhones" onchange="runExtract()"> Phones</label>
+                    </div>
+                    <div class="fg" id="customPatternRow" style="display:none;">
+                        <label>Custom RegEx Pattern</label>
+                        <input type="text" id="customPatternInput" placeholder="e.g. ACC-[0-9]+"
+                            style="font-family:Consolas,monospace;" oninput="runExtract()" />
+                    </div>
+                </div>
+
+                <!-- Extracted results -->
+                <div class="cf-card ao" style="margin-bottom:0;flex:1;display:flex;flex-direction:column;">
+                    <h2>&#128202; Extracted Results <span class="cf-badge o" id="exCountBadge">0 items</span></h2>
+
+                    <div id="exStats" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px;"></div>
+
+                    <!-- Case numbers -->
+                    <div id="exCaseSection" style="display:none;margin-bottom:8px;">
+                        <span class="ex-section-label" style="color:#fde68a;">&#128203; Case Numbers — click to
+                            select/deselect:</span>
+                        <div id="caseChips"
+                            style="display:flex;flex-wrap:wrap;gap:2px;max-height:90px;overflow-y:auto;
+            padding:5px;background:rgba(0,0,0,.25);border-radius:5px;border:1px solid rgba(29,78,216,.2);margin-bottom:5px;"></div>
+                        <div class="btn-row" style="margin-top:3px;">
+                            <button class="btn btn-blue btn-sm" onclick="selectAllCases()">All</button>
+                            <button class="btn btn-ghost btn-sm" onclick="clearCaseSelection()">None</button>
+                            <button class="btn btn-blue btn-sm" onclick="copyCaseNumbers()">&#128203; Copy IN
+                                list</button>
+                            <button class="btn btn-purple btn-sm" onclick="sendToLibrary()">&#8594; Query
+                                Library</button>
+                            <button class="btn btn-blue btn-sm" onclick="sendToBuilder()">&#8594; SOQL Builder</button>
+                        </div>
+                    </div>
+
+                    <!-- Other extractions -->
+                    <div id="exOtherSection" style="flex:1;overflow-y:auto;max-height:160px;"></div>
+
+                    <!-- Format + output -->
+                    <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+                            <span
+                                style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;">Output
+                                Format:</span>
+                            <select id="exFormat" onchange="updateFormattedOutput()"
+                                style="width:auto;font-size:10px;padding:3px 6px;">
+                                <option value="in_list">SOQL IN — 'x','y'</option>
+                                <option value="comma">Comma separated</option>
+                                <option value="newline">One per line</option>
+                                <option value="quoted_comma">"x","y","z"</option>
+                                <option value="array">JS array ["x","y"]</option>
+                                <option value="sql_in">SQL IN (x,y,z)</option>
+                            </select>
+                        </div>
+                        <textarea id="formattedOutput" rows="3" readonly style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(245,158,11,.3);
+            border-radius:5px;padding:7px;font-family:Consolas,monospace;font-size:10.5px;
+            color:#fde68a;resize:none;cursor:text;"
+                            placeholder="Extracted data will appear here in your chosen format..."></textarea>
+                        <div class="btn-row" style="margin-top:4px;">
+                            <button class="btn btn-orange btn-sm" onclick="copyFormattedOutput()">&#128203;
+                                Copy</button>
+                            <button class="btn btn-ghost  btn-sm" onclick="downloadExtracted()">&#8595; Download
+                                CSV</button>
+                            <button class="btn btn-gold         " onclick="goStep(2)">Next: Pick Fields &#8594;</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- end right -->
+        </div>
+    </div><!-- end t-extract -->
+
+    <!-- ══════════ TAB 2: SOQL BUILDER ══════════ -->
+    <div id="t-builder" class="cf-panel">
+        <div class="info-box">
+            &#9642; Select fields, set filter conditions, and generate a ready-to-run SOQL query.
+            Case numbers from <strong>Smart Paste</strong> are automatically injected as a WHERE IN clause.
+        </div>
+
+        <div class="cf-card ab">
+            <h2>&#9632; Select Fields <span class="fp-count" id="selCount">0 selected</span></h2>
+            <div class="fp-actions">
+                <button class="btn btn-ghost btn-sm" onclick="applyPreset('freshdeets')">&#9733; Fresh Deets</button>
+                <button class="btn btn-ghost btn-sm" onclick="applyPreset('getoffmycases')">&#128274; Get Off My
+                    Cases</button>
+                <button class="btn btn-ghost btn-sm" onclick="applyPreset('currentnew')">&#9679; Current New</button>
+                <button class="btn btn-ghost btn-sm" onclick="applyPreset('workbench')">&#128196; Workbench
+                    Safe</button>
+                <button class="btn btn-ghost btn-sm" onclick="selectAllVisible()">&#9745; All Visible</button>
+                <button class="btn btn-ghost btn-sm" onclick="clearAllFields()">&#9746; Clear All</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                <input type="text" class="fp-search" id="fieldSearch" style="margin-bottom:0;"
+                    placeholder="&#128269;  Search API name or label..." oninput="filterFields(this.value)" />
+                <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);
+        text-transform:none;letter-spacing:0;white-space:nowrap;cursor:pointer;">
+                    <input type="checkbox" id="chkExcludeRel" onchange="buildQuery()" />
+                    Exclude relationship fields
+                </label>
+            </div>
+            <div class="field-picker-wrap">
+                <div class="fp-groups" id="fpGroups"></div>
+                <div class="fp-fields" id="fpFields"></div>
+            </div>
+        </div>
+
+        <div class="cf-card ab">
+            <h2>&#128270; Filter Conditions <span class="cf-badge b">WHERE clause</span></h2>
+            <div class="info-box" style="margin-bottom:8px;">
+                &#128161; Add conditions below. Toggle <strong style="color:var(--amber);">AND / OR</strong> between
+                rows.
+                Hover any field name for a tooltip with examples.
+            </div>
+            <div id="filterRows"></div>
+            <div class="btn-row">
+                <button class="btn btn-blue btn-sm" onclick="addFilterRow()">&#10133; Add Condition</button>
+                <button class="btn btn-ghost btn-sm" onclick="clearFilters()">&#128465; Clear</button>
+            </div>
+            <div class="cf-div"></div>
+            <div class="fgrid" style="margin-top:6px;">
+                <div class="fg">
+                    <label>Object</label>
+                    <select id="qObject">
+                        <option value="Case">Case</option>
+                        <option value="Account">Account</option>
+                        <option value="Contact">Contact</option>
+                        <option value="Equipment__c">Equipment__c</option>
+                    </select>
+                </div>
+                <div class="fg">
+                    <label>Order By</label>
+                    <select id="orderByField">
+                        <option value="">-- None --</option>
+                        <option value="CreatedDate">CreatedDate</option>
+                        <option value="LastModifiedDate">LastModifiedDate</option>
+                        <option value="CaseNumber">CaseNumber</option>
+                        <option value="Status">Status</option>
+                        <option value="Priority">Priority</option>
+                        <option value="AccountId">AccountId</option>
+                    </select>
+                </div>
+                <div class="fg">
+                    <label>Direction</label>
+                    <select id="orderDir">
+                        <option value="ASC">ASC</option>
+                        <option value="DESC">DESC</option>
+                    </select>
+                </div>
+                <div class="fg">
+                    <label>Limit</label>
+                    <input type="text" id="qLimit" value="200" />
+                </div>
+            </div>
+        </div>
+
+        <div class="cf-card ab">
+            <h2>&#128196; Generated SOQL Query</h2>
+            <div class="wb-warn" id="relWarning" style="display:none;">
+                <strong>&#9888; Relationship fields detected.</strong>
+                Fields like <code>Account.Name</code> may error in Workbench. Enable parent relationship queries
+                in Workbench Settings, or check <strong>"Exclude relationship fields"</strong> above.
+            </div>
+            <div class="soql-out" id="soqlOutput">-- Select fields and set filters above --</div>
+            <div class="btn-row">
+                <button class="btn btn-blue" onclick="copySOQL()">&#128203; Copy SOQL</button>
+                <button class="btn btn-ghost btn-sm" onclick="downloadSOQL()">&#8595; .soql file</button>
+                <button class="btn btn-gold" onclick="openWorkbench()">&#128279; Open Workbench</button>
+                <button class="btn btn-ghost btn-sm" onclick="buildQuery()">&#8635; Refresh</button>
+            </div>
+            <div class="wb-banner" style="margin-top:12px;">
+                <h3>&#128196; Workbench Steps</h3>
+                <ul class="wb-steps">
+                    <li>Click <strong>Copy SOQL</strong> then <strong>Open Workbench</strong>.</li>
+                    <li>Go to <strong>Queries &rarr; SOQL Query</strong>.</li>
+                    <li>Click inside the query box &rarr; <code>Ctrl+A</code> &rarr; <code>Ctrl+V</code>.</li>
+                    <li>Set <strong>View as: Bulk CSV</strong> for cleanest export.</li>
+                    <li>Click <strong>Query</strong>. When results load: <code>Ctrl+A</code> &rarr; <code>Ctrl+C</code>.
+                    </li>
+                    <li>Return here &rarr; go to <strong>Parse Results</strong> tab &rarr; paste &rarr; click Analyse.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div><!-- end t-builder -->
+
+    <!-- ══════════ TAB 3: QUERY LIBRARY ══════════ -->
+    <div id="t-library" class="cf-panel">
+        <div class="info-box" style="border-left-color:var(--purple);background:rgba(139,92,246,.1);color:#c4b5fd;">
+            &#9642; 10 pre-built SOQL queries covering Case, Account, Contact, and Equipment objects.
+            Case numbers from Smart Paste are auto-injected. Select a query, preview it, copy or open in Workbench.
+        </div>
+
+        <div class="cf-card ap">
+            <h2>&#128203; Case Numbers for Queries <span class="cf-badge p" id="libCaseCount">0 cases</span></h2>
+            <textarea class="ql-case-input" id="libCaseInput" rows="3"
+                placeholder="Case numbers auto-populated from Smart Paste, or type/paste here...&#10;e.g.  00123456, 00123457, 00123458"
+                oninput="rebuildLibrary()"></textarea>
+            <div class="btn-row">
+                <button class="btn btn-purple btn-sm" onclick="pullFromExtract()">&#8593; Pull from Smart Paste</button>
+                <button class="btn btn-ghost  btn-sm" onclick="clearLibCase()">Clear</button>
+            </div>
+        </div>
+
+        <div class="ql-grid">
+            <div class="ql-sidebar" id="qlSidebar"></div>
+            <div class="ql-main" id="qlMain">
+                <div class="info-box"
+                    style="border-left-color:var(--purple);background:rgba(139,92,246,.1);color:#c4b5fd;">
+                    &#128218; Select a query from the left to preview and copy it.
+                </div>
+            </div>
+        </div>
+
+        <!-- Update Header Templates -->
+        <div class="cf-card ap" style="margin-top:12px;">
+            <h2>&#128196; Update / Upsert Header Templates <span class="cf-badge p">Data Loader Ready</span></h2>
+            <div class="info-box" style="border-left-color:var(--purple);background:rgba(139,92,246,.1);color:#c4b5fd;">
+                &#9642; Pre-built CSV header rows with all valid updateable fields for each object.
+                Use with Salesforce Data Loader, Workbench Update, or direct CSV upload.
+                Row count sets how many blank data rows to include below the header.
+            </div>
+            <div class="tmpl-tabs">
+                <button class="tmpl-tab active" onclick="switchTmplObj('tCase')">&#9632; Case</button>
+                <button class="tmpl-tab" onclick="switchTmplObj('tAccount')">&#9711; Account</button>
+                <button class="tmpl-tab" onclick="switchTmplObj('tContact')">&#9670; Contact</button>
+                <button class="tmpl-tab" onclick="switchTmplObj('tEquipment')">&#9632; Equipment</button>
+            </div>
+            <div id="tCase" class="tmpl-pane active"></div>
+            <div id="tAccount" class="tmpl-pane"></div>
+            <div id="tContact" class="tmpl-pane"></div>
+            <div id="tEquipment" class="tmpl-pane"></div>
+        </div>
+    </div><!-- end t-library -->
+
+    <!-- ══════════ TAB: DANMAN SOQL TEMPLATES ══════════ -->
+    <div id="t-soql" class="cf-panel"></div>
+
+    <!-- ══════════ TAB: CASE TRIAGE (attachments / voicemails) ══════════ -->
+    <div id="t-triage" class="cf-panel"></div>
+
+    <!-- ══════════ TAB 4: PARSE RESULTS ══════════ -->
+    <div id="t-parse" class="cf-panel">
+        <div class="info-box teal">
+            &#9642; Paste the <strong>raw Workbench output</strong> here after running your query.
+            Accepts CSV, JSON, pipe-delimited, tab-separated, or Salesforce browser copy.
+            CellsForce auto-detects the format and builds an interactive sortable table.
+        </div>
+        <div class="cf-card at">
+            <h2>&#9670; Raw Query Result</h2>
+            <div class="fgrid" style="margin-bottom:8px;">
+                <div class="fg">
+                    <label>Format</label>
+                    <select id="pasteMode">
+                        <option value="auto">&#129302; Auto-Detect</option>
+                        <option value="csv">CSV (comma)</option>
+                        <option value="tsv">TSV (tab)</option>
+                        <option value="pipe">Pipe |</option>
+                        <option value="json">JSON / SF REST API</option>
+                        <option value="sfbrowser">SF Browser Copy</option>
+                    </select>
+                </div>
+                <div class="fg" style="justify-content:flex-end;align-items:flex-end;">
+                    <button class="btn btn-ghost btn-sm" onclick="loadSample()">&#128194; Sample Data</button>
+                </div>
+            </div>
+            <textarea class="paste-area" id="pasteInput" rows="10"
+                placeholder="Paste Workbench / Salesforce result here...&#10;&#10;&#9642; Workbench Bulk CSV view result&#10;&#9642; JSON from REST API&#10;&#9642; Ctrl+A, Ctrl+C from Developer Console query&#10;&#9642; Pipe or Tab separated&#10;&#10;Then click [Parse &amp; Analyse]."></textarea>
+            <div class="btn-row">
+                <button class="btn btn-teal" onclick="parseData()">&#9670; Parse &amp; Analyse</button>
+                <button class="btn btn-ghost btn-sm" onclick="document.getElementById('pasteInput').value=''">&#128465;
+                    Clear</button>
+            </div>
+        </div>
+        <div id="parseStatsWrap" style="display:none;">
+            <div class="stat-row" id="parseStats"></div>
+            <div class="btn-row" style="margin-bottom:10px;">
+                <button class="btn btn-green" onclick="switchTab('t-table')">&#9632; View Table &#8594;</button>
+                <button class="btn btn-gold" onclick="switchTab('t-email');buildEmailMerge()">&#9733; Email Merge
+                    &#8594;</button>
+                <button class="btn btn-ghost btn-sm" onclick="exportCSV()">&#8595; Export CSV</button>
+            </div>
+        </div>
+    </div><!-- end t-parse -->
+
+    <!-- ══════════ TAB 5: DATA TABLE ══════════ -->
+    <div id="t-table" class="cf-panel">
+        <div class="info-box green">
+            &#9632; Click column headers to sort. Use the search box to filter rows inline.
+            Missing required fields are highlighted in red.
+        </div>
+        <div class="cf-card ag" style="padding:10px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                <input type="text" id="tableSearch" placeholder="&#128269; Filter rows..."
+                    style="flex:1;min-width:150px;" oninput="filterTable(this.value)" />
+                <span id="tableCountLabel" style="font-size:10px;color:var(--muted);white-space:nowrap;"></span>
+                <button class="btn btn-green btn-sm" onclick="exportCSV()">&#8595; Export CSV</button>
+                <button class="btn btn-ghost btn-sm" onclick="copyTableTSV()">&#128203; Copy TSV</button>
+            </div>
+            <div class="data-table-wrap">
+                <table class="data-table" id="dataTable">
+                    <thead id="dataTableHead"></thead>
+                    <tbody id="dataTableBody"></tbody>
+                </table>
+            </div>
+            <div id="deeperSOQLWrap" style="display:none;margin-top:10px;">
+                <div class="cf-card at" style="margin-bottom:0;">
+                    <h2>&#128300; Suggested Follow-Up SOQL</h2>
+                    <div class="info-box teal" id="deeperNote"></div>
+                    <div class="soql-out" id="deeperSOQL"></div>
+                    <div class="btn-row">
+                        <button class="btn btn-teal btn-sm" onclick="copyEl('deeperSOQL')">&#128203; Copy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div><!-- end t-table -->
+
+    <!-- ══════════ TAB 6: EMAIL MERGE ══════════ -->
+    <div id="t-email" class="cf-panel">
+        <div class="info-box gold">
+            &#9733; Emails grouped by Sales Rep using <code>{{{triple-brace}}}</code> Salesforce merge standard.
+            Parse data in <strong>Parse Results</strong> first.
+        </div>
+        <div class="cf-card ago">
+            <h2>&#9999; Email Template <span class="cf-badge go">Merge Fields</span></h2>
+            <div class="fgrid">
+                <div class="fg">
+                    <label>From Name</label>
+                    <input type="text" id="emailFromName" value="Data Quality Team" oninput="buildEmailMerge()" />
+                </div>
+                <div class="fg">
+                    <label>From Email</label>
+                    <input type="text" id="emailFromAddr" value="data.quality@carrierenterprise.com"
+                        oninput="buildEmailMerge()" />
+                </div>
+                <div class="fg">
+                    <label>Subject</label>
+                    <input type="text" id="emailSubject" value="Action Required: Incomplete Account Records"
+                        oninput="buildEmailMerge()" />
+                </div>
+                <div class="fg">
+                    <label>Deadline (optional)</label>
+                    <input type="text" id="emailDeadline" placeholder="e.g. June 30, 2025"
+                        oninput="buildEmailMerge()" />
+                </div>
+                <div class="fg full">
+                    <label>Available Merge Fields — click to insert into Opening</label>
+                    <div id="mergeFieldPalette" style="display:flex;flex-wrap:wrap;gap:3px;padding:6px;
+          background:rgba(0,0,0,.2);border-radius:5px;border:1px solid var(--border);min-height:28px;"></div>
+                </div>
+                <div class="fg full">
+                    <label>Opening Paragraph</label>
+                    <textarea id="emailOpening" rows="4"
+                        oninput="buildEmailMerge()">Hi {{{Salesrep__r.Name}}},
+
+I hope this message finds you well. As part of our ongoing data quality initiative, we have identified accounts assigned to you in Salesforce that are currently missing key information. Your attention to these records will ensure our CRM data remains accurate and actionable.</textarea>
+                </div>
+                <div class="fg full">
+                    <label>Closing Paragraph &mdash; use <code>{{{FROM_NAME}}}</code> <code>{{{FROM_EMAIL}}}</code>
+                        <code>{{{DEADLINE_PHRASE}}}</code></label>
+                    <textarea id="emailClosing" rows="4" oninput="buildEmailMerge()">Please review the accounts listed above and update the missing fields at your earliest convenience{{{DEADLINE_PHRASE}}}. If you have any questions or need assistance accessing Salesforce, please do not hesitate to reach out.
+
+Thank you for your prompt attention to this matter.
+
+{{{FROM_NAME}}}
+{{{FROM_EMAIL}}}</textarea>
+                </div>
+            </div>
+            <div class="cf-div"></div>
+            <label style="display:block;margin-bottom:6px;">Email table columns:</label>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">
+                <label
+                    style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;font-size:10.5px;color:#c4b5fd;cursor:pointer;">
+                    <input type="checkbox" id="ec_Name" checked onchange="buildEmailMerge()"> Account Name</label>
+                <label
+                    style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;font-size:10.5px;color:#c4b5fd;cursor:pointer;">
+                    <input type="checkbox" id="ec_AcctNum" checked onchange="buildEmailMerge()"> Account Number</label>
+                <label
+                    style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;font-size:10.5px;color:#c4b5fd;cursor:pointer;">
+                    <input type="checkbox" id="ec_Region" checked onchange="buildEmailMerge()"> Region</label>
+                <label
+                    style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;font-size:10.5px;color:#c4b5fd;cursor:pointer;">
+                    <input type="checkbox" id="ec_Missing" checked onchange="buildEmailMerge()"> Missing Fields</label>
+                <label
+                    style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;font-size:10.5px;color:#c4b5fd;cursor:pointer;">
+                    <input type="checkbox" id="ec_Phone" onchange="buildEmailMerge()"> Phone</label>
+                <label
+                    style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;font-size:10.5px;color:#c4b5fd;cursor:pointer;">
+                    <input type="checkbox" id="ec_Web" onchange="buildEmailMerge()"> Website</label>
+                <label
+                    style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;font-size:10.5px;color:#c4b5fd;cursor:pointer;">
+                    <input type="checkbox" id="ec_Billing" onchange="buildEmailMerge()"> Billing Street</label>
+                <label
+                    style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;font-size:10.5px;color:#c4b5fd;cursor:pointer;">
+                    <input type="checkbox" id="ec_CaseNum" onchange="buildEmailMerge()"> Case Number</label>
+            </div>
+        </div>
+
+        <div id="emailBlocks">
+            <div class="warn-box">&#9888; Parse data in the Parse Results tab first, then return here to generate merged
+                emails.</div>
+        </div>
+        <div class="btn-row" style="padding:0 0 8px;">
+            <button class="btn btn-gold" onclick="downloadAllEmails()">&#8595; Download All Emails (HTML)</button>
+            <button class="btn btn-blue" onclick="downloadApexClass()">&#8595; Download Apex Class</button>
+            <button class="btn btn-ghost btn-sm" onclick="buildEmailMerge()">&#8635; Rebuild</button>
+        </div>
+    </div><!-- end t-email -->
+
+    <!-- ══════════ TAB 7: SETTINGS ══════════ -->
+    <div id="t-settings" class="cf-panel">
+        <div class="cf-card asl">
+            <h2>&#127962; Organisation Defaults</h2>
+            <div class="fgrid">
+                <div class="fg">
+                    <label>Company Name</label>
+                    <input type="text" id="cfg_company" value="Carrier Enterprise, LLC" oninput="saveSettings()" />
+                </div>
+                <div class="fg">
+                    <label>Default From Email</label>
+                    <input type="text" id="cfg_fromEmail" value="data.quality@carrierenterprise.com"
+                        oninput="saveSettings()" />
+                </div>
+                <div class="fg">
+                    <label>Salesforce Org URL</label>
+                    <input type="text" id="cfg_orgUrl" value="https://yourorg.my.salesforce.com"
+                        oninput="saveSettings()" />
+                </div>
+                <div class="fg">
+                    <label>Workbench URL</label>
+                    <input type="text" id="cfg_wbUrl" value="https://workbench.developerforce.com/query.php"
+                        oninput="saveSettings()" />
+                </div>
+                <div class="fg">
+                    <label>Default Record Limit</label>
+                    <input type="text" id="cfg_limit" value="200" oninput="saveSettings()" />
+                </div>
+                <div class="fg">
+                    <label>Sales Rep Lookup API Name</label>
+                    <input type="text" id="cfg_repField" value="Salesrep__c" oninput="saveSettings()" />
+                </div>
+            </div>
+        </div>
+        <div class="cf-card asl">
+            <h2>&#128190; Saved Presets</h2>
+            <div class="fgrid">
+                <div class="fg">
+                    <label>Preset Name</label>
+                    <input type="text" id="presetName" placeholder="e.g. Canada 8100 Full Case" />
+                </div>
+                <div class="fg" style="justify-content:flex-end;">
+                    <button class="btn btn-green btn-sm" style="align-self:flex-end" onclick="savePreset()">&#128190;
+                        Save</button>
+                </div>
+            </div>
+            <div id="presetList" style="margin-top:8px;"></div>
+        </div>
+        <div class="cf-card asl">
+            <h2>&#128465; Backup &amp; Reset</h2>
+            <div class="btn-row">
+                <button class="btn btn-red   btn-sm" onclick="clearAll()">&#9888; Clear All Data</button>
+                <button class="btn btn-ghost btn-sm" onclick="exportSettings()">&#8595; Export JSON</button>
+                <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importFile').click()">&#8593;
+                    Import JSON</button>
+                <input type="file" id="importFile" style="display:none;" accept=".json"
+                    onchange="importSettings(event)" />
+            </div>
+        </div>
+        <div class="cf-card" style="border:1px solid rgba(255,184,0,.3);background:rgba(255,184,0,.04);">
+            <h2 style="color:var(--gold);">&#9733; About CellsForce v3</h2>
+            <p style="font-size:11px;color:#fde68a;line-height:1.8;margin-bottom:8px;">
+                <strong style="color:var(--gold);">DANMAN SOLUTIONS presents CellsForce v3.0</strong> &mdash;
+                Paste anything. Extract everything. Row by row. Cell by cell. Ready to push back into your CRM.
+            </p>
+            <p style="font-size:9px;color:rgba(255,184,0,.4);letter-spacing:.8px;text-transform:uppercase;">
+                v3.2.0 &bull; Firefox MV2 &bull; Carrier Enterprise, LLC &bull; API 66.0 &bull; 100% Local
+            </p>
+        </div>
+    </div><!-- end t-settings -->
+
+    <!-- Tooltip -->
+    <div id="cfTipBox" class="cf-tip-box"></div>
+
+    <!-- STATUS BAR -->
+    <div class="cf-status">
+        <span><span class="sdot"></span>CellsForce v3.2 &mdash; DANMAN SOLUTIONS</span>
+        <span id="statusMsg">Ready</span>
+        <span id="statusTime"></span>
+    </div>
+
+    <script src="soql-engine.js"></script>
+    <script src="popup.js"></script>
+    <script src="soql-templates.js"></script>
+    <script src="case-triage.js"></script>
+    <script src="help-tooltips.js"></script>
+    <script src="popup-bindings.js"></script>
+</body>
+
+</html>
