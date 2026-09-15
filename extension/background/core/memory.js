@@ -1,7 +1,18 @@
+/**
+ * VERSION: V002R016
+ * DATE: 2026-09-15
+ * CHANGE: Class renamed MemoryManagerImpl so the global lexical binding no longer shadows globalThis.MemoryManager (instance methods were unreachable)
+ * HISTORY:
+ *   V001R1006 2026-08-26 Baseline import (unstamped)
+ */
 // memory.js - Memory Retrieval System module for DANMAN
 // Provides persistent memory stored in Google Drive with fine-tuning config and project contexts
 
-class MemoryManager {
+// The class binding must not be named MemoryManager: a top-level `class X`
+// is a global lexical binding that shadows `globalThis.X` in every other
+// background script, so `MemoryManager.method()` resolved to the class (no
+// such method) instead of the instance assigned below.
+class MemoryManagerImpl {
   constructor() {
     this.memoryConfig = null;
     this.activeProjects = [];
@@ -1001,6 +1012,7 @@ class MemoryManager {
 }
 
 // Export as global
-globalThis.MemoryManager = new MemoryManager();
+globalThis.MemoryManager = new MemoryManagerImpl();
+globalThis.MemoryManagerClass = MemoryManagerImpl;
 
 // memory.js

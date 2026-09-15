@@ -1,6 +1,9 @@
 # CHANGELOG
 
 ## 2026-09-15
+- extension/background/core/memory.js V002R016 — Class renamed MemoryManagerImpl so the global lexical binding no longer shadows globalThis.MemoryManager (instance methods were unreachable)
+- extension/background/core/setup-wizard.js V002R015 — Class renamed SetupWizardImpl so it no longer shadows globalThis.SetupWizard (SETUP_* routes threw "not a function")
+- test/smoke-chromium.js (updated) — Checks that MemoryManager/SetupWizard resolve to instances and that no "is not a function" warnings appear
 - extension/content/content-main.js V003R016 — Share frame helpers with the form-fill IIFE (fixed ReferenceError on every window message); sidebar-sourced DANMAN_FLOAT_OPEN handled once
 - extension/background/service-worker.js V003R018 — Chromium importScripts list mirrors manifest background.scripts (was missing model-catalog, google-ids, master-log, bridge-registry, workbench-parser, soql-engine, security)
 - test/smoke-chromium.js (new) — Standalone Chromium smoke test: boots the extension, runs the hostile-page harness + legitimate flows, time-boxed

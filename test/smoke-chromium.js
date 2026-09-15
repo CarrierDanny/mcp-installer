@@ -74,6 +74,8 @@ async function main() {
   await sleep(1500);
   const diag = await T('sw-diag', sw.evaluate(() => ({ security: typeof DANMAN_Security, listeners: chrome.runtime.onMessage.hasListeners(), router: typeof handleMessage })));
   verdict('service worker booted with security module + router listener', diag.security === 'object' && diag.listeners === true, JSON.stringify(diag));
+  const shadow = await T('sw-shadow', sw.evaluate(() => ({ mem: typeof MemoryManager.isMemoryConfigured, wiz: typeof SetupWizard.getSetupStatus })));
+  verdict('MemoryManager / SetupWizard resolve to instances, not classes', shadow.mem === 'function' && shadow.wiz === 'function', JSON.stringify(shadow));
 
   const page = await ctx.newPage();
   page.on('console', (m) => pageLogs.push('[' + m.type() + '] ' + m.text()));
@@ -168,6 +170,8 @@ async function main() {
   const pageErrors = pageLogs.filter((l) => /^\[pageerror\]|^\[error\]/.test(l) && !/Unknown message type|Receiving end|Extension context|net::ERR|Failed to load resource|Macro|DANMAN_CHAT|API key|clipboard|Popout/i.test(l));
   verdict('no unexpected service-worker errors', swErrors.length === 0, swErrors.slice(0, 3).join(' || '));
   verdict('no unexpected page/frame errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' || '));
+  const notFn = pageLogs.filter((l) => /is not a function/.test(l));
+  verdict('no "is not a function" warnings from sidebar tabs', notFn.length === 0, notFn.slice(0, 2).join(' || '));
 }
 
 function report(code) {

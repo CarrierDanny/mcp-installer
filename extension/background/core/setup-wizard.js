@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R015
+ * DATE: 2026-09-15
+ * CHANGE: Class renamed SetupWizardImpl so it no longer shadows globalThis.SetupWizard (SETUP_* routes threw "not a function")
+ * HISTORY:
+ *   V001R1157 2026-08-26 Baseline import (unstamped)
+ */
 // ============================================================================
 // File: setup-wizard.js
 // Purpose: One-Click Backend Setup module for GetPower DANMAN Firefox extension
@@ -9,7 +16,9 @@
  * Manages Google API authentication, Spreadsheet creation, Drive folder structure,
  * and Apps Script webhook deployment
  */
-class SetupWizard {
+// Named SetupWizardImpl so the class binding does not shadow globalThis.SetupWizard
+// (see memory.js for the same fix).
+class SetupWizardImpl {
   constructor() {
     this.browser = globalThis.Browser;
     this.configManager = globalThis.ConfigManager;
@@ -1149,8 +1158,8 @@ function doGet(e) {
 // Export a shared instance globally — service-worker.js calls instance
 // methods directly (SetupWizard.getSetupStatus(), SetupWizard.runSetup(), …),
 // so exporting the bare class made every SETUP_* route throw.
-globalThis.SetupWizard = new SetupWizard();
-globalThis.SetupWizardClass = SetupWizard;
+globalThis.SetupWizard = new SetupWizardImpl();
+globalThis.SetupWizardClass = SetupWizardImpl;
 
 // ============================================================================
 // File: setup-wizard.js
