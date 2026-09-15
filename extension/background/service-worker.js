@@ -1,8 +1,9 @@
 /**
- * VERSION: V003R018
+ * VERSION: V004R025
  * DATE: 2026-09-15
- * CHANGE: Chromium importScripts list mirrors manifest background.scripts (was missing model-catalog, google-ids, master-log, bridge-registry, workbench-parser, soql-engine, security)
+ * CHANGE: Clip history pruned to clipboard.retention_minutes on load
  * HISTORY:
+ *   V003R018 2026-09-15 Chromium importScripts list mirrors manifest background.scripts (was missing model-catalog, google-ids, master-log, bridge-registry, workbench-parser, soql-engine, security)
  *   V002R070 2026-09-15 Trust-zone gate on the message router, FRAME_TOKEN_GET, webhook URL/redirect checks, crawl/rip fetch-target policy, Salesforce host check, content-zone MACRO_RUN restricted to last macro
  *   V001R4502 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
@@ -2650,6 +2651,7 @@ async function handleClipboardLoad() {
   try {
     const result = await chrome.storage.local.get('gpd_clipboard_state');
     const stored = result.gpd_clipboard_state || null;
+    await pruneExpiredClips(stored);
     // Return in consistent format
     if (stored && stored.state) return stored;
     if (stored && stored.slots) return { state: stored };
@@ -2658,6 +2660,25 @@ async function handleClipboardLoad() {
     console.error('[DANMAN] Clipboard load error:', err);
     return null;
   }
+}
+
+/** Clears slot contents older than config.clipboard.retention_minutes (0 = never). */
+async function pruneExpiredClips(stored) {
+  try {
+    const config = await ConfigManager.load();
+    const minutes = Number(config.clipboard && config.clipboard.retention_minutes) || 0;
+    if (minutes <= 0 || !stored) return;
+    const state = stored.state || stored;
+    if (!state || !Array.isArray(state.slots)) return;
+    const cutoff = Date.now() - minutes * 60000;
+    let changed = false;
+    for (const slot of state.slots) {
+      if (!slot || slot.frozen || !slot.content) continue;
+      const ts = typeof slot.timestamp === 'number' ? slot.timestamp : Date.parse(slot.timestamp || '') || 0;
+      if (ts && ts < cutoff) { slot.content = ''; slot.contentType = 'text'; slot.timestamp = null; slot.sourceUrl = ''; changed = true; }
+    }
+    if (changed) await chrome.storage.local.set({ gpd_clipboard_state: stored });
+  } catch (_) { /* best-effort */ }
 }
 
 async function handleClipboardBroadcast(payload, sender) {

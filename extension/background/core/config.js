@@ -1,8 +1,9 @@
 /**
- * VERSION: V002R025
+ * VERSION: V003R010
  * DATE: 2026-09-15
- * CHANGE: validateEndpoints() on every config write; scraping.block_private_network setting
+ * CHANGE: clipboard.retention_minutes setting (0 = keep)
  * HISTORY:
+ *   V002R025 2026-09-15 validateEndpoints() on every config write; scraping.block_private_network setting
  *   V001R275 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
 const browserApi = (typeof Browser !== 'undefined') ? Browser : chrome;
@@ -108,6 +109,11 @@ const DEFAULT_CONFIG = {
     // Crawl/rip fetches always refuse loopback, link-local and cloud-metadata
     // hosts; turn this on to also refuse RFC1918 / intranet hosts.
     block_private_network: false,
+  },
+  clipboard: {
+    // Minutes a captured clip stays in the slot history (0 = keep until
+    // overwritten). Frozen slots are never expired.
+    retention_minutes: 0,
     tree_batch_size: 25
   },
   memory: {

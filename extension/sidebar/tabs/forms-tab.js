@@ -1,8 +1,9 @@
 /**
- * VERSION: V002R015
+ * VERSION: V003R022
  * DATE: 2026-09-15
- * CHANGE: DANMAN_ELEMENT_PICKED read from authenticated gpd-message dispatch
+ * CHANGE: Autofill session stamped with target_origin (host tab origin) when armed; warns if it cannot be read
  * HISTORY:
+ *   V002R015 2026-09-15 DANMAN_ELEMENT_PICKED read from authenticated gpd-message dispatch
  *   V001R1283 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
 // sidebar/tabs/forms-tab.js — Form Scanner Tab
@@ -862,12 +863,29 @@
 
   // ── Session Persistence (Task 6) ──
 
+  /** Origin of the page this sidebar is embedded in — the only origin the
+   *  content-script engine will inject or auto-submit on. */
+  async function hostPageOrigin() {
+    try {
+      const B = (typeof browser !== 'undefined' && browser.tabs) ? browser : chrome;
+      const tabId = window.DANMAN_hostTabId;
+      if (typeof tabId !== 'number' || !B.tabs || !B.tabs.get) return '';
+      const tab = await B.tabs.get(tabId);
+      return tab && tab.url ? new URL(tab.url).origin : '';
+    } catch (_) { return ''; }
+  }
+
   async function saveAutofillSession() {
     const mappings = {};
     document.querySelectorAll('.formfill-col-select').forEach(sel => {
       if (sel.value) mappings[sel.dataset.fieldId] = sel.value;
     });
+    const targetOrigin = await hostPageOrigin();
+    if (!targetOrigin && typeof Toast !== 'undefined' && Toast.warning) {
+      Toast.warning('Could not read this page\'s origin — the session is saved but will not inject until re-armed.');
+    }
     const session = {
+      target_origin: targetOrigin,
       template_id: document.getElementById('formfill-template-name')?.value || '',
       sheet_url: document.getElementById('formfill-sheet-url')?.value || '',
       column_mappings: mappings,

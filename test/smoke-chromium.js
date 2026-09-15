@@ -81,8 +81,9 @@ async function main() {
   page.on('console', (m) => pageLogs.push('[' + m.type() + '] ' + m.text()));
   page.on('pageerror', (e) => pageLogs.push('[pageerror] ' + e.message));
   await T('goto', page.goto(PAGE_URL));
-  await T('trigger', page.waitForSelector('#gpd-trigger', { timeout: 15000 }));
-  verdict('content script injected (trigger present)', true);
+  await T('trigger-host', page.waitForSelector('[data-danman]', { state: 'attached', timeout: 15000 }));
+  const shadowClosed = await page.evaluate(() => { const h = document.querySelector('[data-danman]'); return h && h.shadowRoot === null && !document.getElementById('gpd-trigger'); });
+  verdict('content script injected; UI host present with closed shadow root', shadowClosed === true);
   const harness = (id) => page.evaluate((i) => document.getElementById(i).click(), id);
 
   // A1: synthetic hover + click
@@ -90,11 +91,13 @@ async function main() {
   const a1 = await page.textContent('#a1r');
   verdict('A1 synthetic hover/click on trigger', a1.startsWith('BLOCKED'), a1);
 
-  // Legit: a real (trusted) click opens the sidebar
-  await T('click-trigger', page.click('#gpd-trigger')); await sleep(1000);
-  const right = await page.$eval('#gpd-sidebar-container', (el) => el.style.right);
-  verdict('legit: trusted click opens sidebar', right === '0px', 'container.style.right=' + right);
+  // Legit: a real (trusted) click opens the sidebar. The trigger is not
+  // addressable through the DOM any more, so click its screen position
+  // (fixed at the right edge, vertically centred).
+  const vp = page.viewportSize();
+  await T('click-trigger', page.mouse.click(vp.width - 12, Math.round(vp.height / 2))); await sleep(1200);
   const sidebar = page.frames().find((f) => f.url().includes('sidebar/sidebar.html'));
+  verdict('legit: trusted click opens sidebar (frame created)', !!sidebar);
   verdict('sidebar iframe loaded from extension origin', !!sidebar && sidebar.url().startsWith('chrome-extension://' + extId));
   const ping = await T('sidebar-ping', sidebar.evaluate(() => chrome.runtime.sendMessage({ type: 'PING' })), 8000);
   verdict('sidebar ↔ background messaging alive', !!(ping && ping.pong), JSON.stringify(ping));
@@ -112,7 +115,15 @@ async function main() {
   got = await sidebar.evaluate(() => window.__got.slice());
   const activeTab = await sidebar.evaluate(() => (document.querySelector('#tab-bar .tab.active') || { dataset: {} }).dataset.tab);
   const dropped = pageLogs.filter((l) => l.includes('Dropped unauthenticated frame message')).length;
-  verdict('A2 forged postMessage into sidebar', got.length === 0 && activeTab !== 'settings' && dropped >= 4, 'delivered=' + JSON.stringify(got) + ' activeTab=' + activeTab + ' droppedLogs=' + dropped);
+  const a2r = await page.textContent('#a2r');
+  // With the closed shadow root the page cannot even address the iframe; if it
+  // somehow could, every forged message must be dropped by the token gate.
+  const a2ok = got.length === 0 && activeTab !== 'settings' && (/unreachable/.test(a2r) || dropped >= 4);
+  verdict('A2 forged postMessage into sidebar', a2ok, a2r + ' delivered=' + JSON.stringify(got) + ' droppedLogs=' + dropped);
+  // Token gate still enforced for messages that reach the frame without the stamp
+  await sidebar.evaluate(() => { window.__got = []; window.postMessage({ type: 'GPD_SWITCH_TAB', tab: 'settings' }, '*'); }); await sleep(500);
+  got = await sidebar.evaluate(() => window.__got.slice());
+  verdict('A2 unstamped message reaching the frame is not delivered', got.length === 0, 'delivered=' + JSON.stringify(got));
 
   // A4/A5: page-origin messages to the content script
   await harness('a4'); await sleep(1200);
@@ -165,6 +176,34 @@ async function main() {
   await harness('nav'); await sleep(2000);
   const navr = await page.textContent('#navr');
   verdict('navigated frame cannot drive content script', navr.startsWith('BLOCKED'), navr);
+
+  // A3: an armed autofill session only injects on the origin it was armed for
+  const pageOrigin = new URL(PAGE_URL).origin;
+  const armSession = (origin) => sw.evaluate((o) => chrome.storage.local.set({ danman_autofill_session: {
+    armed: true, target_origin: o, injection_mode: 'refresh', current_row: 1,
+    column_mappings: { victim: 'Email' }, cached_headers: ['Email'], cached_sheet_data: [['Email'], ['leak@example.com']],
+    field_progress: [], auto_submit_enabled: false, submit_selector: ''
+  } }), origin);
+  await armSession('https://crm.example');
+  await page.reload(); await sleep(2000);
+  let victim = await page.$eval('#victim', (el) => el.value);
+  verdict('A3 session armed for another origin does not inject here', victim === '', 'victim=' + JSON.stringify(victim));
+  await armSession(pageOrigin);
+  await page.reload(); await sleep(2500);
+  victim = await page.$eval('#victim', (el) => el.value);
+  verdict('A3 session armed for this origin still injects', victim === 'leak@example.com', 'victim=' + JSON.stringify(victim));
+  await sw.evaluate(() => chrome.storage.local.remove('danman_autofill_session'));
+
+  // E1 mitigation: per-site kill switch keeps the content scripts inert
+  await sw.evaluate((o) => chrome.storage.local.set({ gpd_disabled_sites: [o] }), pageOrigin);
+  const logMark = pageLogs.length;
+  await page.reload(); await sleep(2000);
+  const hostWhileDisabled = await page.evaluate(() => !!document.querySelector('[data-danman]'));
+  const logsAfter = pageLogs.slice(logMark);
+  const clipInit = logsAfter.some((l) => /Clipboard listener .* initialized/.test(l));
+  const disabledLog = logsAfter.some((l) => /Disabled on this site/.test(l));
+  verdict('per-site disable: no DANMAN UI or clipboard listener on a disabled origin', hostWhileDisabled === false && !clipInit && disabledLog, 'host=' + hostWhileDisabled + ' clipInit=' + clipInit + ' disabledLog=' + disabledLog);
+  await sw.evaluate(() => chrome.storage.local.remove('gpd_disabled_sites'));
 
   const swErrors = swLogs.filter((l) => /\[sw:error\]/.test(l) && !/Unknown message type|API key|not configured|Refused/i.test(l));
   const pageErrors = pageLogs.filter((l) => /^\[pageerror\]|^\[error\]/.test(l) && !/Unknown message type|Receiving end|Extension context|net::ERR|Failed to load resource|Macro|DANMAN_CHAT|API key|clipboard|Popout/i.test(l));

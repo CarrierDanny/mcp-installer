@@ -67,7 +67,9 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "<all_urls>"
+      ],
       "js": [
         "content/content-main.js",
         "content/clipboard-listener.js",
@@ -101,29 +103,24 @@
     {
       "resources": [
         "sidebar/sidebar.html",
-        "sidebar/danman-float.html",
-        "sidebar/danman-float-init.js",
-        "sidebar/danman-popout.html",
-        "sidebar/danman-popout-bridge.js",
-        "sidebar/danman-popout-app.js",
-        "sidebar/clipboard-popout.html",
-        "sidebar/clipboard-popout.js",
-        "lib/pdf.min.js",
-        "lib/pdf.worker.min.js",
-        "data/soql-catalog.json",
-        "cellsforce/*",
-        "icons/*"
+        "sidebar/danman-float.html"
       ],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "commands": {
     "toggle-sidebar": {
-      "suggested_key": { "default": "Ctrl+Shift+D" },
+      "suggested_key": {
+        "default": "Ctrl+Shift+D"
+      },
       "description": "Toggle DANMAN sidebar"
     },
     "toggle-eject": {
-      "suggested_key": { "default": "Ctrl+Shift+E" },
+      "suggested_key": {
+        "default": "Ctrl+Shift+E"
+      },
       "description": "Toggle EJECT panel"
     }
   }

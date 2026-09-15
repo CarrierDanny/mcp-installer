@@ -1,8 +1,9 @@
 /**
- * VERSION: V003R016
+ * VERSION: V004R111
  * DATE: 2026-09-15
- * CHANGE: Share frame helpers with the form-fill IIFE (fixed ReferenceError on every window message); sidebar-sourced DANMAN_FLOAT_OPEN handled once
+ * CHANGE: All in-page UI under one closed shadow host (page cannot reach trigger, hover panel, sidebar/float iframes); autofill engine refuses prepare/inject/auto-submit off the session's target_origin; per-site kill switch at init
  * HISTORY:
+ *   V003R016 2026-09-15 Share frame helpers with the form-fill IIFE (fixed ReferenceError on every window message); sidebar-sourced DANMAN_FLOAT_OPEN handled once
  *   V002R108 2026-09-15 isTrusted gates on trigger/hover/slot clicks; extension-origin check on every frame message; per-tab frame token on messages into frames; GPD_COPY_TO_CLIPBOARD over runtime messaging
  *   V001R1344 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
@@ -64,10 +65,34 @@
     });
   }
   function postToSidebar(msg) { postToFrame(sidebarFrame, msg); }
+
+  // ============================================================
+  // UI ROOT — closed shadow DOM
+  // ============================================================
+  // Everything DANMAN puts on the page (trigger, hover panel, sidebar and
+  // float containers) lives under one host element with a CLOSED shadow
+  // root. Page scripts can see the bare host but cannot reach anything
+  // inside it: no querySelector on our buttons, no synthetic events on them,
+  // no reading the iframe src (the extension UUID), no navigating the frame.
+  // Inline styles only, so nothing depends on page CSS.
+  let uiHost = null;
+  let uiRoot = null;
+  function ui() {
+    if (!uiHost) {
+      uiHost = document.createElement('div');
+      uiHost.setAttribute('data-danman', '');
+      uiHost.style.cssText = 'all:initial;display:contents;';
+      uiRoot = uiHost.attachShadow({ mode: 'closed' });
+    }
+    if (!uiHost.isConnected) (document.body || document.documentElement).appendChild(uiHost);
+    return uiRoot;
+  }
+  function uiGet(id) { return uiRoot ? uiRoot.getElementById(id) : null; }
+
   // The form-fill engine below lives in its own IIFE; share the frame helpers
   // through the content-script world's window (invisible to page scripts —
   // isolated world in Chromium, Xray expando in Firefox).
-  try { Object.defineProperty(window, '__danmanFrame', { value: { fromExtensionFrame, postToSidebar } }); } catch (_) {}
+  try { Object.defineProperty(window, '__danmanFrame', { value: { fromExtensionFrame, postToSidebar, mount: (el) => ui().appendChild(el) } }); } catch (_) {}
 
   // ============================================================
   // MESSAGING
@@ -100,7 +125,7 @@
   // TRIGGER BUTTON
   // ============================================================
   function createTriggerButton() {
-    if (document.getElementById('gpd-trigger')) return;
+    if (uiGet('gpd-trigger')) return;
     triggerBtn = document.createElement('div');
     triggerBtn.id = 'gpd-trigger';
     triggerBtn.innerHTML = '\u26A1 D A N M A N';
@@ -136,7 +161,7 @@
     });
     triggerBtn.addEventListener('mouseenter', (e) => { if (e.isTrusted) scheduleHoverPanel(); });
     triggerBtn.addEventListener('mouseleave', () => cancelHoverPanel());
-    document.body.appendChild(triggerBtn);
+    ui().appendChild(triggerBtn);
   }
 
   function scheduleHoverPanel() {
@@ -296,7 +321,7 @@
 
     hoverPanel.addEventListener('mouseenter', () => { if (hoverPanelTimer) clearTimeout(hoverPanelTimer); });
     hoverPanel.addEventListener('mouseleave', cancelHoverPanel);
-    document.body.appendChild(hoverPanel);
+    ui().appendChild(hoverPanel);
 
     // Live sync while open
     try {
@@ -313,7 +338,7 @@
   // SIDEBAR
   // ============================================================
   function createSidebar() {
-    if (document.getElementById('gpd-sidebar-container')) return;
+    if (uiGet('gpd-sidebar-container')) return;
 
     const container = document.createElement('div');
     container.id = 'gpd-sidebar-container';
@@ -334,11 +359,11 @@
     });
 
     container.appendChild(sidebarFrame);
-    document.body.appendChild(container);
+    ui().appendChild(container);
   }
 
   function restoreSidebarWidth() {
-    const container = document.getElementById('gpd-sidebar-container');
+    const container = uiGet('gpd-sidebar-container');
     if (!container) return;
     sidebarMinimized = false;
     container.style.width = SIDEBAR_WIDTH + 'px';
@@ -351,7 +376,7 @@
 
   function openSidebar(targetTab) {
     if (!sidebarFrame) createSidebar();
-    const container = document.getElementById('gpd-sidebar-container');
+    const container = uiGet('gpd-sidebar-container');
     if (!container) return;
 
     // Always expand to full width — minimize used to leave width at 40px
@@ -369,7 +394,7 @@
 
   function toggleSidebar(targetTab) {
     if (!sidebarFrame) createSidebar();
-    const container = document.getElementById('gpd-sidebar-container');
+    const container = uiGet('gpd-sidebar-container');
     if (!container) return;
 
     if (targetTab && !sidebarOpen) {
@@ -398,7 +423,7 @@
   }
 
   function minimizeSidebar() {
-    const container = document.getElementById('gpd-sidebar-container');
+    const container = uiGet('gpd-sidebar-container');
     if (!container) return;
     sidebarMinimized = !sidebarMinimized;
     if (sidebarMinimized) {
@@ -417,7 +442,7 @@
   // Slide sidebar fully off-screen during pick mode (not just minimize to 40px)
   var _pickHidden = false;
   function _sidebarPickMinimize() {
-    const container = document.getElementById('gpd-sidebar-container');
+    const container = uiGet('gpd-sidebar-container');
     if (!container || _pickHidden) return;
     _pickHidden = true;
     container.style.transition = 'right 0.2s ease';
@@ -425,7 +450,7 @@
     if (triggerBtn) triggerBtn.style.opacity = '0.4';
   }
   function _sidebarPickRestore() {
-    const container = document.getElementById('gpd-sidebar-container');
+    const container = uiGet('gpd-sidebar-container');
     if (!container || !_pickHidden) return;
     _pickHidden = false;
     container.style.transition = 'right 0.2s ease';
@@ -747,7 +772,7 @@
   // ============================================================
   function createDanmanFloat() {
     // Remove existing float if any
-    const existing = document.getElementById('danman-float-container');
+    const existing = uiGet('danman-float-container');
     if (existing) { existing.remove(); return; } // Toggle behavior
 
     const container = document.createElement('div');
@@ -780,7 +805,7 @@
     document.addEventListener('mouseup', () => { isDragging = false; });
 
     container.appendChild(iframe);
-    document.body.appendChild(container);
+    ui().appendChild(container);
   }
 
   // ============================================================
@@ -1005,12 +1030,12 @@
     const floatType = event.data.type;
 
     if (floatType === 'DANMAN_FLOAT_CLOSE') {
-      const el = document.getElementById('danman-float-container');
+      const el = uiGet('danman-float-container');
       if (el) el.remove();
       return;
     }
     if (floatType === 'DANMAN_FLOAT_MINIMIZE') {
-      const el = document.getElementById('danman-float-container');
+      const el = uiGet('danman-float-container');
       if (el) {
         if (el.style.height === '40px') {
           el.style.height = '500px'; el.style.resize = 'both';
@@ -1034,7 +1059,7 @@
         meta: Array.from(document.querySelectorAll('meta[name],meta[property]')).map(m => ({name: m.name || m.getAttribute('property'), content: (m.content || '').slice(0, 200)})),
         text: document.body.innerText.slice(0, 3000)
       };
-      const floatIframe = document.getElementById('danman-float-iframe');
+      const floatIframe = uiGet('danman-float-iframe');
       if (floatIframe) postToFrame(floatIframe, { type: 'DANMAN_PAGE_ANALYSIS', payload: pageData });
       return;
     }
@@ -1150,10 +1175,20 @@
   }
 
   function init() {
-    createTriggerButton();
-    checkEmailContext();
-    initPageWatch();
-    console.log('[DANMAN] Content script initialized');
+    // Per-site kill switch (popup → "Disable DANMAN on this site"): no UI,
+    // no page watch, no email probe here. The sidebar can still be opened
+    // explicitly from the popup.
+    chrome.storage.local.get('gpd_disabled_sites', (r) => {
+      const list = (r && Array.isArray(r.gpd_disabled_sites)) ? r.gpd_disabled_sites : [];
+      if (list.indexOf(location.origin) !== -1) {
+        console.log('[DANMAN] Disabled on this site (' + location.origin + ')');
+        return;
+      }
+      createTriggerButton();
+      checkEmailContext();
+      initPageWatch();
+      console.log('[DANMAN] Content script initialized');
+    });
   }
 
   // Continuous page sight — when enabled, notify sidebar/SW on navigation
@@ -1209,10 +1244,24 @@
   let session = null;
   let fieldQueue = [];
   let currentFieldIndex = 0;
+  let originWarned = false;
+
+  // An armed session carries the origin it was armed on (set by the Forms
+  // tab). This engine runs on every site, so without this check a session
+  // armed for a CRM would fill and auto-submit its sheet rows into any page
+  // the user landed on next. Sessions without an origin fail closed.
+  function sessionOriginOk() {
+    if (!session || !session.armed) return false;
+    if (!session.target_origin) {
+      if (!originWarned) { originWarned = true; console.warn('[DANMAN] Autofill session has no target origin — re-arm it from the Forms tab'); }
+      return false;
+    }
+    return session.target_origin === location.origin;
+  }
 
   chrome.storage.local.get('danman_autofill_session', function(stored) {
     session = stored.danman_autofill_session;
-    if (session && session.armed) {
+    if (sessionOriginOk()) {
       prepareInjection();
       if (session.injection_mode === 'refresh') {
         setTimeout(function() { injectAllFields(); }, 500);
@@ -1223,13 +1272,16 @@
   chrome.storage.onChanged.addListener(function(changes) {
     if (changes.danman_autofill_session) {
       session = changes.danman_autofill_session.newValue;
-      if (session && session.armed) {
+      if (sessionOriginOk()) {
         prepareInjection();
+      } else {
+        fieldQueue = [];
       }
     }
   });
 
   function prepareInjection() {
+    if (!sessionOriginOk()) { fieldQueue = []; return; }
     if (!session || !session.column_mappings || !session.cached_sheet_data) return;
     var headers = session.cached_headers || (session.cached_sheet_data[0] || []);
     var rowData = session.cached_sheet_data[session.current_row] || [];
@@ -1270,6 +1322,7 @@
   }
 
   function injectNextField() {
+    if (!sessionOriginOk()) return;
     if (!session || !session.armed || currentFieldIndex >= fieldQueue.length) {
       if (currentFieldIndex >= fieldQueue.length && fieldQueue.length > 0) {
         advanceRow();
@@ -1310,6 +1363,7 @@
   }
 
   function injectAllFields() {
+    if (!sessionOriginOk()) return;
     while (currentFieldIndex < fieldQueue.length) {
       var item = fieldQueue[currentFieldIndex];
       if (!shouldSkip(item.el)) {
@@ -1331,8 +1385,9 @@
   function advanceRow() {
     if (!session) return;
 
-    // Auto-submit: click the save/submit button if enabled
-    if (session.auto_submit_enabled && session.submit_selector) {
+    // Auto-submit: click the save/submit button if enabled — only on the
+    // origin the session was armed for.
+    if (session.auto_submit_enabled && session.submit_selector && sessionOriginOk()) {
       setTimeout(function() {
         var btn = document.querySelector(session.submit_selector);
         if (btn) {
@@ -1360,7 +1415,7 @@
     var el = document.createElement('div');
     el.textContent = msg;
     el.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:10px 20px;background:#38bdf8;color:#0f172a;border-radius:8px;font-weight:600;font-size:13px;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:system-ui,sans-serif;';
-    document.body.appendChild(el);
+    if (frameApi && frameApi.mount) frameApi.mount(el); else document.body.appendChild(el);
     setTimeout(function() { el.remove(); }, 3000);
   }
 

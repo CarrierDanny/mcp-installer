@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R048
+ * DATE: 2026-09-15
+ * CHANGE: "Disable/Enable on this site" toggle writing gpd_disabled_sites
+ * HISTORY:
+ *   V001R367 2026-08-26 Baseline import (unstamped)
+ */
 // popup.js — GetPower DANMAN Popup Controller
 // Extracted from inline <script> for Firefox MV3 CSP compliance
 (function () {
@@ -203,6 +210,46 @@
     console.log('[DANMAN Popup] open-sidebar handler attached');
   }
 
+  // Per-site kill switch: content scripts check gpd_disabled_sites at load
+  // and stay inert on listed origins. Takes effect on the next page load.
+  async function refreshSiteToggle() {
+    var label = document.getElementById('site-toggle-label');
+    var desc = document.getElementById('site-toggle-desc');
+    var btn = document.getElementById('site-toggle');
+    if (!label || !btn) return null;
+    var tab = await getActiveTab();
+    var origin = '';
+    try { if (tab && tab.url && tab.url.startsWith('http')) origin = new URL(tab.url).origin; } catch (_) {}
+    if (!origin) { btn.disabled = true; label.textContent = 'Disable on this site'; desc.textContent = 'Open a web page first'; return null; }
+    var r = await B.storage.local.get('gpd_disabled_sites');
+    var list = (r && Array.isArray(r.gpd_disabled_sites)) ? r.gpd_disabled_sites : [];
+    var disabled = list.indexOf(origin) !== -1;
+    btn.disabled = false;
+    label.textContent = (disabled ? 'Enable on ' : 'Disable on ') + origin.replace(/^https?:\/\//, '');
+    desc.textContent = disabled ? 'DANMAN is off here — reload after enabling' : 'No trigger, clipboard capture or page watch here';
+    return { origin: origin, list: list, disabled: disabled };
+  }
+
+  function setupSiteToggle() {
+    var btn = document.getElementById('site-toggle');
+    if (!btn) return;
+    refreshSiteToggle().catch(function () {});
+    btn.addEventListener('click', async function () {
+      try {
+        var st = await refreshSiteToggle();
+        if (!st) return;
+        var list = st.list.filter(function (o) { return o !== st.origin; });
+        if (!st.disabled) list.push(st.origin);
+        await B.storage.local.set({ gpd_disabled_sites: list });
+        await refreshSiteToggle();
+        showStatus(st.disabled ? 'Enabled — reload the page' : 'Disabled — reload the page');
+      } catch (e) {
+        console.error('[DANMAN Popup] site toggle failed:', e);
+        showStatus('Could not update site setting');
+      }
+    });
+  }
+
   function setupOpenSettings() {
     var btn = document.getElementById('open-settings');
     if (!btn) { console.error('[DANMAN Popup] open-settings button not found'); return; }
@@ -344,6 +391,7 @@
 
     // Attach all handlers
     setupOpenSidebar();
+    setupSiteToggle();
     setupOpenSettings();
     setupClipboardManager();
     setupQuickScrape();

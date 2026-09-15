@@ -1,6 +1,17 @@
 # CHANGELOG
 
 ## 2026-09-15
+- extension/content/content-main.js V004R111 — All in-page UI under one closed shadow host (page cannot reach trigger, hover panel, sidebar/float iframes); autofill engine refuses prepare/inject/auto-submit off the session's target_origin; per-site kill switch at init
+- extension/content/clipboard-listener.js V003R063 — Sidebar posts go through the shared frame API (frame now inside the closed shadow root); per-site kill switch at init
+- extension/sidebar/sidebar.js V003R006 — Expose DANMAN_hostTabId for tabs that need the host page (forms-tab origin stamp)
+- extension/sidebar/tabs/forms-tab.js V003R022 — Autofill session stamped with target_origin (host tab origin) when armed; warns if it cannot be read
+- extension/background/core/config.js V003R010 — clipboard.retention_minutes setting (0 = keep)
+- extension/background/service-worker.js V004R025 — Clip history pruned to clipboard.retention_minutes on load
+- extension/popup/popup.js V002R048 — "Disable/Enable on this site" toggle writing gpd_disabled_sites
+- extension/popup/popup.html (no stamp — HTML) — Menu item for the per-site kill switch
+- extension/manifest.json (no stamp — JSON) — web_accessible_resources reduced to sidebar.html + danman-float.html
+- test/danman-hostile-page.html (updated) — A1/A2/navigate rows report the closed shadow root
+- test/smoke-chromium.js (updated) — Shadow-root aware; A3 origin scoping and per-site disable checks (31 checks)
 - extension/background/core/memory.js V002R016 — Class renamed MemoryManagerImpl so the global lexical binding no longer shadows globalThis.MemoryManager (instance methods were unreachable)
 - extension/background/core/setup-wizard.js V002R015 — Class renamed SetupWizardImpl so it no longer shadows globalThis.SetupWizard (SETUP_* routes threw "not a function")
 - test/smoke-chromium.js (updated) — Checks that MemoryManager/SetupWizard resolve to instances and that no "is not a function" warnings appear

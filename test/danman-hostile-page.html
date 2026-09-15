@@ -53,6 +53,7 @@ Nothing here talks to any server.</p>
   <button id="nav">Run</button> <span id="navr"></span>
 </div>
 
+<p><em>Since the shadow-root change:</em> the page can only see an empty <code>&lt;div data-danman&gt;</code> host; the trigger, hover panel and both iframes are inside its closed shadow root, so A1, A2 and the navigation attack report BLOCKED before they can even start.</p>
 <p><em>What "BLOCKED" checks:</em> A1 — no paste arrived in the textarea and no
 <code>CLIPBOARD_PASTE_TO_PAGE</code>/<code>MACRO_RUN</code> was refused in the console (the
 handlers never ran). A2 — the sidebar logs "Dropped unauthenticated frame message" and the
@@ -66,11 +67,14 @@ frame is redirected (and the trigger still works after you reload).</p>
   const mark = (id, ok, note) => { $(id).className = ok ? 'ok' : 'bad'; $(id).textContent = (ok ? 'BLOCKED' : 'NOT BLOCKED') + (note ? ' — ' + note : ''); };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  // DANMAN's UI lives under a closed shadow root: the host is visible, its contents are not.
+  const danmanHost = () => document.querySelector('[data-danman]');
+
   // A1
   $('a1').onclick = async () => {
     const victim = $('victim'); victim.value = ''; victim.focus();
     const trig = document.getElementById('gpd-trigger');
-    if (!trig) return mark('a1r', true, 'no trigger in DOM (extension off?)');
+    if (!trig) return mark('a1r', true, danmanHost() ? 'trigger exists but is unreachable from the page (closed shadow root)' : 'no DANMAN UI on this page (extension off, or site disabled)');
     trig.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
     await sleep(900);
     const panel = document.getElementById('gpd-hover-panel');
@@ -85,8 +89,8 @@ frame is redirected (and the trigger still works after you reload).</p>
 
   // A2
   $('a2').onclick = () => {
-    const frame = document.getElementById('gpd-sidebar');
-    if (!frame) return mark('a2r', false, 'open the sidebar first');
+    const frame = document.getElementById('gpd-sidebar') || (danmanHost() && danmanHost().shadowRoot && danmanHost().shadowRoot.getElementById('gpd-sidebar'));
+    if (!frame) return mark('a2r', true, danmanHost() ? 'sidebar iframe is unreachable from the page (closed shadow root)' : 'open the sidebar first');
     const forged = [
       { type: 'GPD_CLIPBOARD_CAPTURE', content: 'FORGED-' + Date.now() },
       { type: 'CLIPBOARD_STATE_UPDATE', state: { slots: [{ content: 'FORGED-SLOT' }] } },
@@ -127,8 +131,8 @@ frame is redirected (and the trigger still works after you reload).</p>
 
   // Navigate the sidebar frame
   $('nav').onclick = async () => {
-    const frame = document.getElementById('gpd-sidebar');
-    if (!frame) return mark('navr', false, 'open the sidebar first');
+    const frame = document.getElementById('gpd-sidebar') || (danmanHost() && danmanHost().shadowRoot && danmanHost().shadowRoot.getElementById('gpd-sidebar'));
+    if (!frame) return mark('navr', true, danmanHost() ? 'sidebar iframe is unreachable from the page (closed shadow root)' : 'open the sidebar first');
     frame.src = location.href + '#as-frame';
     await sleep(800);
     try {

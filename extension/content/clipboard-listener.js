@@ -1,8 +1,9 @@
 /**
- * VERSION: V002R046
+ * VERSION: V003R063
  * DATE: 2026-09-15
- * CHANGE: Extension-origin check on window messages; frame token on sendToSidebar
+ * CHANGE: Sidebar posts go through the shared frame API (frame now inside the closed shadow root); per-site kill switch at init
  * HISTORY:
+ *   V002R046 2026-09-15 Extension-origin check on window messages; frame token on sendToSidebar
  *   V001R690 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
 // content/clipboard-listener.js — DANMAN Clipboard Listener v6.9.0
@@ -16,8 +17,6 @@
   // CONFIGURATION
   // ============================================================================
 
-  var SIDEBAR_CONTAINER_ID = 'gpd-sidebar-container';
-  var SIDEBAR_FRAME_ID = 'gpd-sidebar';
   var B = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
 
   // Frame trust — see content-main.js. Messages from the sidebar must carry
@@ -25,19 +24,6 @@
   var EXT_ORIGIN = (function () {
     try { return String(B.runtime.getURL('')).replace(/\/+$/, ''); } catch (_) { return ''; }
   })();
-  var frameTokenReady = (function fetchFrameToken(attempt) {
-    return new Promise(function (resolve) {
-      var p;
-      try { p = B.runtime.sendMessage({ type: 'FRAME_TOKEN_GET' }); } catch (err) { p = Promise.reject(err); }
-      Promise.resolve(p).then(function (r) {
-        if (!r || !r.token) throw new Error('no frame token');
-        resolve(r.token);
-      }).catch(function () {
-        if (attempt < 5) setTimeout(function () { resolve(fetchFrameToken(attempt + 1)); }, 400 * (attempt + 1));
-        else resolve(null);
-      });
-    });
-  })(0);
 
   // ============================================================================
   // STATE — Last focused editable element (tracked before sidebar steals focus)
@@ -62,27 +48,16 @@
   // HELPERS
   // ============================================================================
 
-  function getSidebarFrame() {
-    try {
-      var container = document.getElementById(SIDEBAR_CONTAINER_ID);
-      if (!container) return null;
-      return container.querySelector('#' + SIDEBAR_FRAME_ID);
-    } catch (_) {
-      return null;
-    }
-  }
-
+  // The sidebar iframe lives inside content-main.js's closed shadow root, so
+  // it is not reachable through the document; content-main.js shares a
+  // stamped poster on the content-script window.
   function sendToSidebar(message) {
-    frameTokenReady.then(function (token) {
-      try {
-        var frame = getSidebarFrame();
-        if (frame && frame.contentWindow) {
-          frame.contentWindow.postMessage(Object.assign({}, message, { __t: token }), EXT_ORIGIN || '*');
-        }
-      } catch (err) {
-        console.warn('[DANMAN Clipboard] sendToSidebar error:', err);
-      }
-    });
+    try {
+      var api = window.__danmanFrame;
+      if (api && api.postToSidebar) api.postToSidebar(message);
+    } catch (err) {
+      console.warn('[DANMAN Clipboard] sendToSidebar error:', err);
+    }
   }
 
   function sendToServiceWorker(message) {
@@ -711,10 +686,22 @@
     }, 2000);
   }
 
+  // Per-site kill switch shared with content-main.js: on a disabled site no
+  // copy/cut/paste capture, no hotkeys, no clipboard polling.
+  function initializeUnlessDisabled() {
+    try {
+      B.storage.local.get('gpd_disabled_sites').then(function (r) {
+        var list = (r && Array.isArray(r.gpd_disabled_sites)) ? r.gpd_disabled_sites : [];
+        if (list.indexOf(location.origin) !== -1) return;
+        initialize();
+      }).catch(initialize);
+    } catch (_) { initialize(); }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initialize);
+    document.addEventListener('DOMContentLoaded', initializeUnlessDisabled);
   } else {
-    initialize();
+    initializeUnlessDisabled();
   }
 })();
 // END: content/clipboard-listener.js — DANMAN Clipboard Listener v7.7.0

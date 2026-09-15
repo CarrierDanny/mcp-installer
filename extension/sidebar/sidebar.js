@@ -1,8 +1,9 @@
 /**
- * VERSION: V002R071
+ * VERSION: V003R006
  * DATE: 2026-09-15
- * CHANGE: Frame-token gate for parent messages (queued until token arrives); copyToClipboard over tabs.sendMessage
+ * CHANGE: Expose DANMAN_hostTabId for tabs that need the host page (forms-tab origin stamp)
  * HISTORY:
+ *   V002R071 2026-09-15 Frame-token gate for parent messages (queued until token arrives); copyToClipboard over tabs.sendMessage
  *   V001R249 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
 // sidebar/sidebar.js — Tab Controller & Message Bridge
@@ -91,6 +92,7 @@
       if (!r || !r.token) throw new Error('no frame token');
       frameToken = r.token;
       hostTabId = typeof r.tabId === 'number' ? r.tabId : null;
+      window.DANMAN_hostTabId = hostTabId; // tabs read it (forms-tab stamps the autofill origin)
       const queued = pendingFrameEvents.splice(0);
       queued.forEach((m) => { if (m.__t === frameToken) deliverFrameMessage(m); });
     }).catch(() => {
