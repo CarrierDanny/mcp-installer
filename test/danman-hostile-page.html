@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DANMAN hostile page harness</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 24px; max-width: 900px; color: #111; }
+  h1 { font-size: 20px; }
+  button { margin: 4px 6px 4px 0; padding: 6px 10px; }
+  .row { padding: 8px 0; border-bottom: 1px solid #ddd; }
+  .ok { color: #2f6b3a; font-weight: 600; }
+  .bad { color: #b3261e; font-weight: 600; }
+  pre { background: #f4f4f4; padding: 8px; overflow: auto; max-height: 220px; }
+  input, textarea { display: block; margin: 6px 0; width: 100%; }
+</style>
+</head>
+<body>
+<h1>DANMAN hostile page harness</h1>
+<p>Open this file in Firefox with the extension installed, open the Browser Console
+(Ctrl+Shift+J), then press each button. This page plays the role of a malicious
+website. Every attack below should report <span class="ok">BLOCKED</span>.
+Nothing here talks to any server.</p>
+
+<div class="row">
+  <strong>A1 — synthetic hover + click on the DANMAN trigger</strong><br>
+  Fires <code>mouseenter</code> on the trigger, waits for the clip panel, then clicks slot 1 and "Macro run".
+  <button id="a1">Run</button> <span id="a1r"></span>
+</div>
+
+<div class="row">
+  <strong>A2 — forged postMessage into the sidebar iframe</strong><br>
+  Sends <code>GPD_CLIPBOARD_CAPTURE</code>, <code>CLIPBOARD_STATE_UPDATE</code>, <code>DANMAN_ELEMENT_PICKED</code> and <code>GPD_SWITCH_TAB</code> without the frame token. Open the sidebar first.
+  <button id="a2">Run</button> <span id="a2r"></span>
+</div>
+
+<div class="row">
+  <strong>A4 / A5 — page-origin messages to the content script</strong><br>
+  Posts <code>GPD_PASTE_FROM_SLOT</code>, <code>DANMAN_FLOAT_OPEN</code>, <code>DANMAN_PICK_ELEMENT</code>, <code>DANMAN_INJECT_ALL</code> on this window.
+  <button id="a4">Run</button> <span id="a4r"></span>
+  <textarea id="victim" rows="2" placeholder="If a paste lands here, A4 failed"></textarea>
+</div>
+
+<div class="row">
+  <strong>Eavesdrop — read sidebar → parent traffic</strong><br>
+  Listens on this window for anything the sidebar posts to its parent. Then press "Copy" on a clip in the sidebar: the copied text must NOT appear below.
+  <button id="ev">Start listening</button> <span id="evr"></span>
+  <pre id="evlog"></pre>
+</div>
+
+<div class="row">
+  <strong>Navigate the sidebar iframe away</strong><br>
+  Points the extension iframe at this page, then answers from it. The content script must ignore it.
+  <button id="nav">Run</button> <span id="navr"></span>
+</div>
+
+<p><em>Since the shadow-root change:</em> the page can only see an empty <code>&lt;div data-danman&gt;</code> host; the trigger, hover panel and both iframes are inside its closed shadow root, so A1, A2 and the navigation attack report BLOCKED before they can even start.</p>
+<p><em>What "BLOCKED" checks:</em> A1 — no paste arrived in the textarea and no
+<code>CLIPBOARD_PASTE_TO_PAGE</code>/<code>MACRO_RUN</code> was refused in the console (the
+handlers never ran). A2 — the sidebar logs "Dropped unauthenticated frame message" and the
+clipboard tab's slots are unchanged. A4/A5 — no float window, no crosshair overlay, no
+paste. Eavesdrop — copies never show up in the log. Navigate — nothing happens after the
+frame is redirected (and the trigger still works after you reload).</p>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const mark = (id, ok, note) => { $(id).className = ok ? 'ok' : 'bad'; $(id).textContent = (ok ? 'BLOCKED' : 'NOT BLOCKED') + (note ? ' — ' + note : ''); };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // DANMAN's UI lives under a closed shadow root: the host is visible, its contents are not.
+  const danmanHost = () => document.querySelector('[data-danman]');
+
+  // A1
+  $('a1').onclick = async () => {
+    const victim = $('victim'); victim.value = ''; victim.focus();
+    const trig = document.getElementById('gpd-trigger');
+    if (!trig) return mark('a1r', true, danmanHost() ? 'trigger exists but is unreachable from the page (closed shadow root)' : 'no DANMAN UI on this page (extension off, or site disabled)');
+    trig.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    await sleep(900);
+    const panel = document.getElementById('gpd-hover-panel');
+    if (!panel) return mark('a1r', true, 'hover panel did not open for a synthetic mouseenter');
+    const slot = panel.querySelector('.gpd-hover-slot');
+    if (slot) slot.click();
+    const macro = Array.from(panel.querySelectorAll('button')).find((b) => b.textContent === 'Macro run');
+    if (macro) macro.click();
+    await sleep(800);
+    mark('a1r', victim.value === '' && !!panel, victim.value ? 'a clip was pasted' : 'panel opened but clicks were ignored — check console for MACRO_RUN');
+  };
+
+  // A2
+  $('a2').onclick = () => {
+    const frame = document.getElementById('gpd-sidebar') || (danmanHost() && danmanHost().shadowRoot && danmanHost().shadowRoot.getElementById('gpd-sidebar'));
+    if (!frame) return mark('a2r', true, danmanHost() ? 'sidebar iframe is unreachable from the page (closed shadow root)' : 'open the sidebar first');
+    const forged = [
+      { type: 'GPD_CLIPBOARD_CAPTURE', content: 'FORGED-' + Date.now() },
+      { type: 'CLIPBOARD_STATE_UPDATE', state: { slots: [{ content: 'FORGED-SLOT' }] } },
+      { type: 'DANMAN_ELEMENT_PICKED', selector: '#forged' },
+      { type: 'GPD_SWITCH_TAB', tab: 'settings' }
+    ];
+    forged.forEach((m) => frame.contentWindow.postMessage(m, '*'));
+    mark('a2r', true, 'sent 4 forged messages — verify the sidebar did not switch tab or change slots');
+  };
+
+  // A4 / A5
+  $('a4').onclick = async () => {
+    const victim = $('victim'); victim.value = ''; victim.focus();
+    [
+      { type: 'GPD_PASTE_FROM_SLOT', slotIndex: 0, content: 'FORGED PASTE' },
+      { type: 'DANMAN_FLOAT_OPEN' },
+      { type: 'DANMAN_PICK_ELEMENT' },
+      { type: 'DANMAN_INJECT_ALL' }
+    ].forEach((m) => window.postMessage(m, '*'));
+    await sleep(600);
+    const float = document.getElementById('danman-float-container');
+    const overlay = document.getElementById('danman-picker-overlay');
+    mark('a4r', !float && !overlay && victim.value === '',
+      [float && 'float opened', overlay && 'picker overlay appeared', victim.value && 'paste landed'].filter(Boolean).join(', '));
+  };
+
+  // Eavesdrop
+  $('ev').onclick = () => {
+    $('evlog').textContent = '';
+    window.addEventListener('message', (e) => {
+      if (e.source === window) return;
+      const d = e.data || {};
+      $('evlog').textContent += JSON.stringify(d).slice(0, 200) + '\n';
+      if (d.type === 'GPD_COPY_TO_CLIPBOARD') mark('evr', false, 'copied text was visible to the page');
+    });
+    mark('evr', true, 'listening — now copy a clip from the sidebar');
+  };
+
+  // Navigate the sidebar frame
+  $('nav').onclick = async () => {
+    const frame = document.getElementById('gpd-sidebar') || (danmanHost() && danmanHost().shadowRoot && danmanHost().shadowRoot.getElementById('gpd-sidebar'));
+    if (!frame) return mark('navr', true, danmanHost() ? 'sidebar iframe is unreachable from the page (closed shadow root)' : 'open the sidebar first');
+    frame.src = location.href + '#as-frame';
+    await sleep(800);
+    try {
+      frame.contentWindow.postMessage({ type: 'GPD_REQUEST_FORMS' }, '*');
+      frame.contentWindow.eval && frame.contentWindow.eval('parent.postMessage({type:"DANMAN_PICK_ELEMENT"},"*")');
+    } catch (e) {}
+    await sleep(500);
+    mark('navr', !document.getElementById('danman-picker-overlay'), 'reload the page to restore the sidebar');
+  };
+})();
+</script>
+</body>
+</html>

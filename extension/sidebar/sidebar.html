@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DANMAN</title>
+  <style>
+    /* ===== Reset & Base ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow: hidden;
+      height: 100vh;
+      width: 100%;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ===== Scrollbar ===== */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* ===== Header ===== */
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+      flex-shrink: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .logo {
+      font-size: 16px;
+      font-weight: 700;
+      color: #38bdf8;
+      letter-spacing: 0.5px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .header-actions button {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 16px;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .header-actions button:hover {
+      background: #1e293b;
+      color: #e2e8f0;
+    }
+
+    /* ===== Tab Bar (wraps to two rows now that 15 tabs are registered) ===== */
+    #tab-bar {
+      display: flex;
+      flex-wrap: wrap;
+      overflow: hidden;
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+      flex-shrink: 0;
+    }
+
+    #tab-bar .tab {
+      flex: 1 1 12%;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #94a3b8;
+      font-size: 10px;
+      padding: 7px 2px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    #tab-bar .tab:hover {
+      color: #e2e8f0;
+      background: rgba(56, 189, 248, 0.05);
+    }
+
+    #tab-bar .tab.active {
+      color: #38bdf8;
+      border-bottom-color: #38bdf8;
+    }
+
+    #tab-bar .tab.macros-tab.active {
+      color: #f97316;
+      border-bottom-color: #f97316;
+    }
+
+    #tab-bar .tab.execute-tab.active {
+      color: #22c55e;
+      border-bottom-color: #22c55e;
+    }
+
+    #tab-bar .tab.ocr-tab.active {
+      color: #06b6d4;
+      border-bottom-color: #06b6d4;
+    }
+
+    .tab-icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .tab-label {
+      font-size: 9px;
+      line-height: 1;
+      letter-spacing: 0.2px;
+    }
+
+    /* ===== Content Area ===== */
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .tab-content {
+      display: none;
+      padding: 14px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== Typography ===== */
+    .tab-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 4px;
+    }
+
+    .tab-desc {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    /* ===== Cards ===== */
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    /* ===== Buttons ===== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: #0ea5e9;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #38bdf8;
+    }
+
+    .btn-primary:active {
+      background: #0284c7;
+    }
+
+    .btn-secondary {
+      background: #1e293b;
+      color: #38bdf8;
+      border: 1px solid #334155;
+    }
+
+    .btn-secondary:hover {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    .btn-danger {
+      background: #991b1b;
+      color: #fca5a5;
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
+    .btn-success {
+      background: #166534;
+      color: #86efac;
+    }
+
+    .btn-success:hover {
+      background: #15803d;
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ===== Inputs ===== */
+    .input, input[type="text"], input[type="url"], input[type="password"], input[type="number"], textarea, select {
+      width: 100%;
+      padding: 8px 12px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color 0.2s ease;
+      outline: none;
+    }
+
+    .input:focus, input:focus, textarea:focus, select:focus {
+      border-color: #38bdf8;
+    }
+
+    .input::placeholder, input::placeholder, textarea::placeholder {
+      color: #64748b;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    /* ===== Checkbox / Toggle ===== */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+    }
+
+    .toggle-row label {
+      margin-bottom: 0;
+      color: #e2e8f0;
+      font-size: 13px;
+    }
+
+    .toggle {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle .slider {
+      position: absolute;
+      inset: 0;
+      background: #334155;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .toggle .slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 2px;
+      bottom: 2px;
+      background: #e2e8f0;
+      border-radius: 50%;
+      transition: transform 0.2s ease;
+    }
+
+    .toggle input:checked + .slider {
+      background: #0ea5e9;
+    }
+
+    .toggle input:checked + .slider::before {
+      transform: translateX(16px);
+    }
+
+    /* ===== Tables ===== */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .data-table th {
+      text-align: left;
+      padding: 8px 10px;
+      background: #1e293b;
+      color: #94a3b8;
+      font-weight: 600;
+      border-bottom: 1px solid #334155;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .data-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #1e293b;
+      color: #e2e8f0;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .data-table tr:nth-child(even) td {
+      background: rgba(30, 41, 59, 0.5);
+    }
+
+    .data-table tr:hover td {
+      background: rgba(56, 189, 248, 0.05);
+    }
+
+    /* ===== Badges & Tags ===== */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .badge-cyan { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+    .badge-green { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+    .badge-yellow { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .badge-red { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: #64748b;
+    }
+
+    .empty-state .icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .empty-state .message {
+      font-size: 13px;
+    }
+
+    /* ===== Stat Row ===== */
+    .stat-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .stat-box {
+      flex: 1;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .stat-box .value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    .stat-box .label {
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    /* ===== Divider ===== */
+    .divider {
+      height: 1px;
+      background: #334155;
+      margin: 12px 0;
+    }
+
+    /* ===== Result List ===== */
+    .result-item {
+      padding: 8px 10px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.2s ease;
+    }
+
+    .result-item:hover {
+      border-color: #38bdf8;
+    }
+
+    .result-item .url {
+      color: #38bdf8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .result-item .meta {
+      color: #64748b;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    /* ===== Toast Container ===== */
+    #toast-container {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column-reverse;
+      max-width: 280px;
+    }
+
+    /* ===== Utility ===== */
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-2 { gap: 8px; }
+    .gap-1 { gap: 4px; }
+    .mt-2 { margin-top: 8px; }
+    .mt-3 { margin-top: 12px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mb-3 { margin-bottom: 12px; }
+    .text-cyan { color: #38bdf8; }
+    .text-muted { color: #64748b; }
+    .text-sm { font-size: 12px; }
+    .text-xs { font-size: 11px; }
+    .font-mono { font-family: 'Consolas', 'Monaco', monospace; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <div class="logo">&#9889; DANMAN <span id="app-version-label" style="font-size:10px;font-weight:400;color:#64748b;"></span></div>
+      <div class="header-actions">
+        <button id="btn-minimize" title="Minimize">&mdash;</button>
+        <button id="btn-close" title="Close">&times;</button>
+      </div>
+    </header>
+
+    <nav id="tab-bar">
+      <button class="tab active" data-tab="clipboard"><span class="tab-icon">&#128203;</span><span class="tab-label">Clips</span></button>
+      <button class="tab" data-tab="danman"><span class="tab-icon">&#129302;</span><span class="tab-label">DANMAN</span></button>
+      <button class="tab" data-tab="scrape"><span class="tab-icon">&#128269;</span><span class="tab-label">Scrape</span></button>
+      <button class="tab" data-tab="links"><span class="tab-icon">&#128279;</span><span class="tab-label">Links</span></button>
+      <button class="tab" data-tab="tree"><span class="tab-icon">&#127795;</span><span class="tab-label">Tree</span></button>
+      <button class="tab" data-tab="forms"><span class="tab-icon">&#128221;</span><span class="tab-label">Forms</span></button>
+      <button class="tab macros-tab" data-tab="macros"><span class="tab-icon">&#9881;</span><span class="tab-label">Macros</span></button>
+      <button class="tab execute-tab" data-tab="execute"><span class="tab-icon">&#9654;</span><span class="tab-label">Execute</span></button>
+      <button class="tab ocr-tab" data-tab="ocr"><span class="tab-icon">&#128269;</span><span class="tab-label">OCR</span></button>
+      <button class="tab" data-tab="studio"><span class="tab-icon">&#128444;</span><span class="tab-label">Studio</span></button>
+      <button class="tab soql-tab" data-tab="soql"><span class="tab-icon">&#128202;</span><span class="tab-label">SOQL</span></button>
+      <button class="tab" data-tab="triage"><span class="tab-icon">&#127911;</span><span class="tab-label">Triage</span></button>
+      <button class="tab" data-tab="eject"><span class="tab-icon">&#9889;</span><span class="tab-label">EJECT</span></button>
+      <button class="tab" data-tab="cellsforce"><span class="tab-icon">&#129518;</span><span class="tab-label">CellsF</span></button>
+      <button class="tab" data-tab="sheets"><span class="tab-icon">&#128200;</span><span class="tab-label">Sheets</span></button>
+      <button class="tab" data-tab="memory"><span class="tab-icon">&#129504;</span><span class="tab-label">Memory</span></button>
+      <button class="tab" data-tab="recall"><span class="tab-icon">&#128269;</span><span class="tab-label">Recall</span></button>
+      <button class="tab" data-tab="bridge"><span class="tab-icon">&#127753;</span><span class="tab-label">Bridge</span></button>
+      <button class="tab" data-tab="gasconsole"><span class="tab-icon">&#128421;</span><span class="tab-label">GAS</span></button>
+      <button class="tab" data-tab="settings"><span class="tab-icon">&#128295;</span><span class="tab-label">Settings</span></button>
+      <button class="tab" data-tab="help"><span class="tab-icon">&#10067;</span><span class="tab-label">Help</span></button>
+    </nav>
+
+    <main id="content">
+      <div id="tab-clipboard" class="tab-content active"><!-- Clipboard Manager --></div>
+      <div id="tab-danman" class="tab-content"><!-- DANMAN chat --></div>
+      <div id="tab-scrape" class="tab-content"><!-- Scrape --></div>
+      <div id="tab-links" class="tab-content"><!-- Links --></div>
+      <div id="tab-tree" class="tab-content"><!-- Tree RAG --></div>
+      <div id="tab-forms" class="tab-content"><!-- Forms --></div>
+      <div id="tab-macros" class="tab-content"><!-- Macros --></div>
+      <div id="tab-execute" class="tab-content"><!-- Execute --></div>
+      <div id="tab-ocr" class="tab-content"><!-- OCR --></div>
+      <div id="tab-studio" class="tab-content"><!-- Screenshot Studio --></div>
+      <div id="tab-soql" class="tab-content"><!-- Workbench SOQL --></div>
+      <div id="tab-triage" class="tab-content"><!-- Case Triage --></div>
+      <div id="tab-eject" class="tab-content"><!-- EJECT --></div>
+      <div id="tab-cellsforce" class="tab-content" style="padding:0;">
+        <!-- Full CellsForce v3.2 app, mounted as-is (lazy-loaded by sidebar.js) -->
+        <iframe id="cellsforce-frame" data-src="../cellsforce/popup.html?mode=sidebar"
+                style="width:100%;height:calc(100vh - 118px);border:none;background:#fff;"></iframe>
+      </div>
+      <div id="tab-sheets" class="tab-content"><!-- Google Sheets --></div>
+      <div id="tab-memory" class="tab-content"><!-- Memory Manager --></div>
+      <div id="tab-recall" class="tab-content"><!-- Recall: vectorized memory --></div>
+      <div id="tab-bridge" class="tab-content"><!-- Universal Bridge --></div>
+      <div id="tab-gasconsole" class="tab-content"><!-- Apps Script HTML console --></div>
+      <div id="tab-settings" class="tab-content"><!-- Settings --></div>
+      <div id="tab-help" class="tab-content"><!-- Help & How-To --></div>
+    </main>
+
+    <!-- Toast container -->
+    <div id="toast-container"></div>
+  </div>
+
+  <script src="../core/app-version.js"></script>
+  <script src="../core/model-catalog.js"></script>
+  <script src="../core/google-ids.js"></script>
+  <script src="../core/progressive-learn.js"></script>
+  <script src="../core/usage-guard.js"></script>
+  <script src="../core/danman-personas.js"></script>
+  <script src="i18n/dms-i18n.js"></script>
+  <script src="core/macro-step-schema.js"></script>
+  <script src="core/macro-shared.js"></script>
+  <script src="components/progress-bar.js"></script>
+  <script src="components/confidence-gauge.js"></script>
+  <script src="components/toast.js"></script>
+  <script src="components/output-dialog.js"></script>
+  <script src="components/template-mapper.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="tabs/scrape-tab.js"></script>
+  <script src="tabs/links-tab.js"></script>
+  <script src="tabs/forms-tab.js"></script>
+  <script src="tabs/danman-tab.js"></script>
+  <script src="tabs/eject-tab.js"></script>
+  <script src="../core/tree-renderer.js"></script>
+  <script src="../core/tree-export.js"></script>
+  <script src="../core/tree-diagram.js"></script>
+  <script src="tabs/tree-tab.js"></script>
+  <script src="tabs/clipboard-tab.js"></script>
+  <script src="tabs/macros-tab.js"></script>
+  <script src="tabs/execute-tab.js"></script>
+  <script src="../lib/pdf.min.js"></script>
+  <script src="tabs/ocr-tab.js"></script>
+  <script src="tabs/studio-tab.js"></script>
+  <script src="tabs/soql-tab.js"></script>
+  <script src="tabs/triage-tab.js"></script>
+  <script src="tabs/sheets-tab.js"></script>
+  <script src="tabs/memory-tab.js"></script>
+  <script src="core/ingest-engine.js"></script>
+  <script src="core/gforms-wpforms.js"></script>
+  <script src="tabs/recall-tab.js"></script>
+  <script src="tabs/bridge-tab.js"></script>
+  <script src="tabs/gas-console-tab.js"></script>
+  <script src="tabs/settings-tab.js"></script>
+  <script src="tabs/help-tab.js"></script>
+</body>
+</html>

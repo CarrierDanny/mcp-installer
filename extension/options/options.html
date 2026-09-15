@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GetPower DANMAN - Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+
+  <!-- ===== SIDEBAR ===== -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-logo">&#9889; GetPower</span>
+      <span class="sidebar-version">DANMAN v7.5.1</span>
+    </div>
+    <ul class="sidebar-nav">
+      <li class="sidebar-item active" data-section="quick-connect">
+        <span class="sidebar-icon">&#128279;</span>
+        <span class="sidebar-label">Quick Connect</span>
+      </li>
+      <li class="sidebar-item" data-section="ai-config">
+        <span class="sidebar-icon">&#129302;</span>
+        <span class="sidebar-label">AI Configuration</span>
+      </li>
+      <li class="sidebar-item" data-section="rag-scraping">
+        <span class="sidebar-icon">&#128270;</span>
+        <span class="sidebar-label">RAG &amp; Scraping</span>
+      </li>
+      <li class="sidebar-item" data-section="autofill-templates">
+        <span class="sidebar-icon">&#128221;</span>
+        <span class="sidebar-label">Auto-fill Templates</span>
+      </li>
+      <li class="sidebar-item" data-section="integrations">
+        <span class="sidebar-icon">&#128279;</span>
+        <span class="sidebar-label">Integrations</span>
+      </li>
+      <li class="sidebar-item" data-section="advanced">
+        <span class="sidebar-icon">&#9881;&#65039;</span>
+        <span class="sidebar-label">Advanced Options</span>
+      </li>
+      <li class="sidebar-item" data-section="memory">
+        <span class="sidebar-icon">&#129504;</span>
+        <span class="sidebar-label">Memory System</span>
+      </li>
+      <li class="sidebar-item" data-section="config-manager">
+        <span class="sidebar-icon">&#128230;</span>
+        <span class="sidebar-label">Import / Export</span>
+      </li>
+    </ul>
+    <div class="sidebar-footer">
+      <button class="btn btn-sm btn-ghost" id="btn-sidebar-collapse" title="Collapse sidebar">&#9776;</button>
+    </div>
+  </nav>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <div class="main-content" id="main-content">
+
+    <!-- =========================================================
+         SECTION 0: QUICK CONNECT (unified setup)
+         ========================================================= -->
+    <div class="section active" id="section-quick-connect">
+      <div class="section-header">
+        <h1 class="section-title">&#128279; Quick Connect</h1>
+        <p class="section-desc">Enter Webhook_URL + Webhook_Secret once. Sync pulls Drive folder ID, Sheets ID, API keys, GAS console URL, and other Script Properties from your Apps Script backend.</p>
+        <div class="section-actions" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-accent" id="btn-quick-sync">Sync from Webhook</button>
+          <button class="btn btn-secondary" id="btn-quick-save">Save URL / Secret</button>
+          <span class="save-status" id="save-status-quick" style="font-size:12px;color:#64748b;"></span>
+        </div>
+      </div>
+
+      <div class="subsection" id="subsection-quick-webhook">
+        <div class="subsection-header" data-toggle="subsection-quick-webhook-body">
+          <h2 class="subsection-title">Webhook Credentials</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-quick-webhook-body">
+          <div class="form-group">
+            <label for="quick-webhook-url">Webhook_URL</label>
+            <input type="url" id="quick-webhook-url" class="input" placeholder="https://script.google.com/macros/s/.../exec">
+            <span class="helper-text">Apps Script Web App deployment ending in <code>/exec</code>. Deploy <code>DANMAN_Bridge.gs</code> + <code>Bridge_ConfigSync.gs</code>.</span>
+          </div>
+          <div class="form-group">
+            <label for="quick-webhook-secret">Webhook_Secret</label>
+            <div class="api-key-row">
+              <input type="password" id="quick-webhook-secret" class="input" placeholder="Same as BRIDGE_SECRET / WEBHOOK_SECRET" autocomplete="off">
+              <button class="btn btn-sm btn-secondary" id="btn-reveal-quick-secret" title="Reveal">&#128065;</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="quick-gas-ui-url">GAS Console HTML URL</label>
+            <input type="url" id="quick-gas-ui-url" class="input" placeholder="https://script.google.com/macros/s/.../exec">
+            <span class="helper-text">Shown in the sidebar GAS tab. Synced from Script Property <code>GAS_UI_URL</code> when present.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection" id="subsection-quick-synced">
+        <div class="subsection-header" data-toggle="subsection-quick-synced-body">
+          <h2 class="subsection-title">Synced IDs</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-quick-synced-body">
+          <div class="form-group">
+            <label for="quick-sheets-id">Google Sheet (full URL or ID)</label>
+            <input type="text" id="quick-sheets-id" class="input" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+          </div>
+          <div class="form-group">
+            <label for="quick-drive-id">Drive folder (full URL or ID)</label>
+            <input type="text" id="quick-drive-id" class="input" placeholder="https://drive.google.com/drive/folders/...">
+          </div>
+          <div id="quick-sync-summary" style="font-size:12px;color:#94a3b8;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         SECTION 1: AI CONFIGURATION
+         ========================================================= -->
+    <div class="section" id="section-ai-config">
+      <div class="section-header">
+        <h1 class="section-title">&#129302; AI Configuration</h1>
+        <p class="section-desc">Manage API keys, select default models, and configure token limits for AI providers.</p>
+        <div class="section-actions" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-accent" id="save-ai-config">Save AI Settings</button>
+          <span class="save-status" id="save-status-ai" style="font-size:12px;color:#64748b;"></span>
+        </div>
+      </div>
+
+      <!-- Subsection: API Keys -->
+      <div class="subsection" id="subsection-api-keys">
+        <div class="subsection-header" data-toggle="subsection-api-keys-body">
+          <h2 class="subsection-title">API Keys</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-api-keys-body">
+
+          <!-- Claude API Key -->
+          <div class="form-group">
+            <label for="api-key-claude">Claude API Key</label>
+            <div class="api-key-row">
+              <input type="password" id="api-key-claude" class="input" placeholder="sk-ant-api03-..." autocomplete="off">
+              <button class="btn btn-sm btn-secondary" id="btn-reveal-claude" title="Reveal key">&#128065;</button>
+              <button class="btn btn-sm btn-accent" id="btn-test-claude">Test</button>
+            </div>
+            <span class="helper-text">Get your key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a></span>
+            <div class="status-indicator" id="status-claude"></div>
+          </div>
+
+          <!-- OpenAI API Key -->
+          <div class="form-group">
+            <label for="api-key-openai">OpenAI API Key</label>
+            <div class="api-key-row">
+              <input type="password" id="api-key-openai" class="input" placeholder="sk-..." autocomplete="off">
+              <button class="btn btn-sm btn-secondary" id="btn-reveal-openai" title="Reveal key">&#128065;</button>
+              <button class="btn btn-sm btn-accent" id="btn-test-openai">Test</button>
+            </div>
+            <span class="helper-text">Get your key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a></span>
+            <div class="status-indicator" id="status-openai"></div>
+          </div>
+
+          <!-- Gemini API Key -->
+          <div class="form-group">
+            <label for="api-key-gemini">Gemini API Key</label>
+            <div class="api-key-row">
+              <input type="password" id="api-key-gemini" class="input" placeholder="AIza..." autocomplete="off">
+              <button class="btn btn-sm btn-secondary" id="btn-reveal-gemini" title="Reveal key">&#128065;</button>
+              <button class="btn btn-sm btn-accent" id="btn-test-gemini">Test</button>
+            </div>
+            <span class="helper-text">Get your key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com</a></span>
+            <div class="status-indicator" id="status-gemini"></div>
+          </div>
+
+          <!-- Firecrawl API Key -->
+          <div class="form-group">
+            <label for="api-key-firecrawl">Firecrawl API Key</label>
+            <div class="api-key-row">
+              <input type="password" id="api-key-firecrawl" class="input" placeholder="fc-..." autocomplete="off">
+              <button class="btn btn-sm btn-secondary" id="btn-reveal-firecrawl" title="Reveal key">&#128065;</button>
+              <button class="btn btn-sm btn-accent" id="btn-test-firecrawl">Test</button>
+            </div>
+            <span class="helper-text">Get your key at <a href="https://www.firecrawl.dev/app/api-keys" target="_blank" rel="noopener">firecrawl.dev</a></span>
+            <div class="status-indicator" id="status-firecrawl"></div>
+          </div>
+
+          <!-- ElevenLabs (TTS / voice agent) -->
+          <div class="form-group">
+            <label for="api-key-elevenlabs">ElevenLabs API Key</label>
+            <div class="api-key-row">
+              <input type="password" id="api-key-elevenlabs" class="input" placeholder="xi-..." autocomplete="off">
+              <button class="btn btn-sm btn-secondary" id="btn-reveal-elevenlabs" title="Reveal key">&#128065;</button>
+            </div>
+            <span class="helper-text">Optional — used for DANMAN speak-replies / voice personas. Get a key at <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener">elevenlabs.io</a></span>
+          </div>
+          <div class="form-group">
+            <label for="elevenlabs-voice-id">ElevenLabs Voice / Agent ID</label>
+            <input type="text" id="elevenlabs-voice-id" class="input" placeholder="Voice ID or Agent ID">
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Default Models -->
+      <div class="subsection" id="subsection-default-models">
+        <div class="subsection-header" data-toggle="subsection-default-models-body">
+          <h2 class="subsection-title">Default Models</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-default-models-body">
+
+          <div class="form-group">
+            <label>Primary AI Provider</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="primary-provider" id="provider-claude" value="claude" checked>
+                <span class="radio-custom"></span>
+                Claude
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="primary-provider" id="provider-openai" value="openai">
+                <span class="radio-custom"></span>
+                OpenAI
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="primary-provider" id="provider-gemini" value="gemini">
+                <span class="radio-custom"></span>
+                Gemini
+              </label>
+            </div>
+          </div>
+
+          <!-- Claude Model Select -->
+          <div class="form-group">
+            <label for="model-select-claude">Claude Model</label>
+            <select id="model-select-claude" class="select">
+              <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+              <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+              <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+            </select>
+            <div class="model-info" id="model-info-claude">
+              <span class="model-info-item">Context: 200K tokens</span>
+              <span class="model-info-item">Cost: $3/$15 per 1M tokens</span>
+            </div>
+          </div>
+
+          <!-- OpenAI Model Select -->
+          <div class="form-group">
+            <label for="model-select-openai">OpenAI Model</label>
+            <select id="model-select-openai" class="select">
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4o-mini">GPT-4o Mini</option>
+              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            </select>
+            <div class="model-info" id="model-info-openai">
+              <span class="model-info-item">Context: 128K tokens</span>
+              <span class="model-info-item">Cost: $2.50/$10 per 1M tokens</span>
+            </div>
+          </div>
+
+          <!-- Gemini Model Select -->
+          <div class="form-group">
+            <label for="model-select-gemini">Gemini Model</label>
+            <select id="model-select-gemini" class="select">
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+            </select>
+            <div class="model-info" id="model-info-gemini">
+              <span class="model-info-item">Context: 1M tokens</span>
+              <span class="model-info-item">Cost: $0.075/$0.30 per 1M tokens</span>
+              <span class="model-info-item warning">&#9888; Long context may be slow</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Token Limits -->
+      <div class="subsection" id="subsection-token-limits">
+        <div class="subsection-header" data-toggle="subsection-token-limits-body">
+          <h2 class="subsection-title">Token Limits</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-token-limits-body">
+
+          <h3 class="group-label">Global Defaults</h3>
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="tokens-rag-extraction">RAG Extraction Tokens</label>
+              <input type="number" id="tokens-rag-extraction" class="input" value="4096" min="256" max="100000" step="256">
+              <span class="helper-text">Max tokens for RAG content extraction per page</span>
+            </div>
+            <div class="form-group half">
+              <label for="tokens-form-fill">Form Fill Tokens</label>
+              <input type="number" id="tokens-form-fill" class="input" value="2048" min="256" max="32000" step="256">
+              <span class="helper-text">Max tokens for AI-powered form filling</span>
+            </div>
+          </div>
+
+          <h3 class="group-label">Per-Model Overrides</h3>
+          <div class="form-group">
+            <label for="token-override-claude">Claude Token Override</label>
+            <input type="number" id="token-override-claude" class="input" placeholder="Use global default" min="256" max="200000" step="256">
+            <div class="warning-indicator" id="token-warning-claude"></div>
+          </div>
+          <div class="form-group">
+            <label for="token-override-openai">OpenAI Token Override</label>
+            <input type="number" id="token-override-openai" class="input" placeholder="Use global default" min="256" max="128000" step="256">
+            <div class="warning-indicator" id="token-warning-openai"></div>
+          </div>
+          <div class="form-group">
+            <label for="token-override-gemini">Gemini Token Override</label>
+            <input type="number" id="token-override-gemini" class="input" placeholder="Use global default" min="256" max="1000000" step="256">
+            <div class="warning-indicator" id="token-warning-gemini"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- GCP Vision / OCR -->
+      <div class="subsection">
+        <div class="subsection-header" data-toggle="subsection-gcp-vision">
+          <span class="subsection-title">GCP Vision / OCR</span>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body" id="subsection-gcp-vision">
+          <div class="form-group">
+            <label for="gcp-project-id">GCP Project Number</label>
+            <input class="input" type="text" id="gcp-project-id" placeholder="Enter your GCP project number (e.g., 123456789012)">
+            <span class="helper-text">Required for Vision API, OCR, and document processing. Your GCP API key is stored securely in Apps Script Script Properties.</span>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="gcp-vision-enabled">
+              <span class="checkbox-custom"></span>
+              Enable Vision/OCR features
+            </label>
+            <span class="helper-text">Routes image processing through your Apps Script webhook using the GCP key stored in Script Properties.</span>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="gcp-speech-enabled">
+              <span class="checkbox-custom"></span>
+              Speech-to-text (Cloud Speech)
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="gcp-object-enabled">
+              <span class="checkbox-custom"></span>
+              Object / label detection (Vision)
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="gcp-memory-drive">
+              <span class="checkbox-custom"></span>
+              Persistent memory on Google Drive
+            </label>
+            <span class="helper-text">Uses Memory folder + scraped/RAG URLs saved under your Drive root (see Memory section).</span>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="gcp-rag-scrape-folder">
+              <span class="checkbox-custom"></span>
+              Index scraped URLs into Drive RAG folder
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="gcp-webhook-action">Apps Script action for GCP tools</label>
+            <input class="input" type="text" id="gcp-webhook-action" placeholder="gcp_toolkit" value="gcp_toolkit">
+            <span class="helper-text">Webhook receives { action, project_id, tool, payload } — implement in your GAS project.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         SECTION 2: RAG & SCRAPING
+         ========================================================= -->
+    <div class="section" id="section-rag-scraping">
+      <div class="section-header">
+        <h1 class="section-title">&#128270; RAG &amp; Scraping</h1>
+        <p class="section-desc">Configure the RAG tree explorer, scraping behavior, and performance tuning.</p>
+        <div class="section-actions" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-accent" id="save-rag-scraping">Save Scraping Settings</button>
+          <span class="save-status" id="save-status-rag" style="font-size:12px;color:#64748b;"></span>
+        </div>
+      </div>
+
+      <!-- Subsection: RAG Tree Explorer -->
+      <div class="subsection" id="subsection-rag-tree">
+        <div class="subsection-header" data-toggle="subsection-rag-tree-body">
+          <h2 class="subsection-title">RAG Tree Explorer</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-rag-tree-body">
+
+          <div class="form-group">
+            <label for="rag-url-input">Target URL</label>
+            <div class="input-button-row">
+              <input type="url" id="rag-url-input" class="input" placeholder="https://example.com/docs">
+              <button class="btn btn-accent" id="btn-generate-tree">Generate Tree</button>
+              <button class="btn btn-secondary" id="btn-clear-tree">Clear</button>
+              <button class="btn btn-warning" id="btn-pause-tree" style="display:none">Pause</button>
+              <button class="btn btn-accent" id="btn-resume-tree" style="display:none">Resume</button>
+              <button class="btn btn-danger" id="btn-cancel-tree" style="display:none">Cancel</button>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <button class="btn btn-sm btn-ghost" id="btn-expand-all">Expand All</button>
+            <button class="btn btn-sm btn-ghost" id="btn-collapse-all">Collapse All</button>
+              <button class="btn btn-secondary" id="btn-export-tree" style="display:none;margin-left:auto;">Export ▾</button>
+          </div>
+
+          <div class="tree-visualizer" id="rag-tree-container">
+            <div class="tree-placeholder">Enter a URL and click "Generate Tree" to visualize the site structure.</div>
+          </div>
+
+          <div id="tree-export-panel" class="card" style="display:none;padding:16px;margin-top:12px;background:#1e293b;border:1px solid #334155;border-radius:8px;">
+            <h4 style="color:#e2e8f0;margin:0 0 12px 0;font-size:14px;">Export Tree Data</h4>
+            <label style="display:block;color:#94a3b8;font-size:13px;margin:6px 0;cursor:pointer;"><input type="checkbox" id="export-flat" checked> Flat Rows → Google Sheet (default)</label>
+            <label style="display:block;color:#94a3b8;font-size:13px;margin:6px 0;cursor:pointer;"><input type="checkbox" id="export-paths"> Path Columns → Google Sheet</label>
+            <label style="display:block;color:#94a3b8;font-size:13px;margin:6px 0;cursor:pointer;"><input type="checkbox" id="export-indented"> Indented Tree → Google Sheet</label>
+            <label style="display:block;color:#94a3b8;font-size:13px;margin:6px 0;cursor:pointer;"><input type="checkbox" id="export-diagram"> Tree Diagram → Google Drive</label>
+            <label style="display:block;color:#94a3b8;font-size:13px;margin:6px 0;cursor:pointer;"><input type="checkbox" id="export-json"> JSON → Download</label>
+            <label style="display:block;color:#94a3b8;font-size:13px;margin:6px 0;cursor:pointer;"><input type="checkbox" id="export-csv"> CSV → Download</label>
+            <div id="diagram-preview" style="margin-top:8px;"></div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;">
+              <button class="btn btn-accent" id="btn-run-export">Export Selected</button>
+              <span id="export-status" style="color:#22c55e;font-size:12px;"></span>
+            </div>
+          </div>
+
+          <div class="selection-summary" id="rag-selection-summary">
+            <div class="summary-item">
+              <span class="summary-label">Branches</span>
+              <span class="summary-value" id="rag-summary-branches">0</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Pages</span>
+              <span class="summary-value" id="rag-summary-pages">0</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Est. Time</span>
+              <span class="summary-value" id="rag-summary-time">--</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Est. Cost</span>
+              <span class="summary-value" id="rag-summary-cost">$0.00</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Scraping Behavior -->
+      <div class="subsection" id="subsection-scraping-behavior">
+        <div class="subsection-header" data-toggle="subsection-scraping-behavior-body">
+          <h2 class="subsection-title">Scraping Behavior</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-scraping-behavior-body">
+
+          <div class="form-group">
+            <label for="scrape-depth-slider">Crawl Depth: <span id="scrape-depth-value">3</span></label>
+            <input type="range" id="scrape-depth-slider" class="range-slider" min="1" max="6" value="3" step="1">
+            <div class="range-labels">
+              <span>1 (Shallow)</span>
+              <span>6 (Deep)</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Content Types to Extract</label>
+            <div class="checkbox-grid">
+              <label class="checkbox-label">
+                <input type="checkbox" id="scrape-content-text" checked>
+                <span class="checkbox-custom"></span>
+                Text
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="scrape-content-tables" checked>
+                <span class="checkbox-custom"></span>
+                Tables
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="scrape-content-images">
+                <span class="checkbox-custom"></span>
+                Images
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="scrape-content-links" checked>
+                <span class="checkbox-custom"></span>
+                Links
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="scrape-content-headings" checked>
+                <span class="checkbox-custom"></span>
+                Headings
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="scrape-content-pdfs">
+                <span class="checkbox-custom"></span>
+                PDFs
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="scrape-content-videos">
+                <span class="checkbox-custom"></span>
+                Videos
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="scrape-exclude-patterns">Exclude URL Patterns</label>
+            <textarea id="scrape-exclude-patterns" class="textarea" rows="3" placeholder="One pattern per line, e.g.:&#10;*/admin/*&#10;*.pdf&#10;*/login*"></textarea>
+            <span class="helper-text">Glob patterns to exclude from scraping</span>
+          </div>
+
+          <div class="form-group">
+            <label for="scrape-skip-keywords">Skip Keywords</label>
+            <input type="text" id="scrape-skip-keywords" class="input" placeholder="e.g. cookie, privacy, terms">
+            <span class="helper-text">Comma-separated keywords; pages containing these are skipped</span>
+          </div>
+
+            <div class="form-group">
+              <label for="tree-batch-size">Tree batch size (rows per Sheet write)</label>
+              <input type="number" id="tree-batch-size" min="5" max="100" value="25" class="input" style="max-width:120px;">
+            </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Performance -->
+      <div class="subsection" id="subsection-scrape-performance">
+        <div class="subsection-header" data-toggle="subsection-scrape-performance-body">
+          <h2 class="subsection-title">Performance</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-scrape-performance-body">
+
+          <div class="form-group">
+            <label for="scrape-delay-slider">Request Delay: <span id="scrape-delay-value">500</span>ms</label>
+            <input type="range" id="scrape-delay-slider" class="range-slider" min="0" max="5000" value="500" step="100">
+            <div class="range-labels">
+              <span>0ms (No delay)</span>
+              <span>5000ms (Slow)</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="scrape-timeout">Timeout (seconds)</label>
+              <input type="number" id="scrape-timeout" class="input" value="30" min="5" max="120" step="5">
+            </div>
+            <div class="form-group half">
+              <label for="scrape-concurrent-requests">Concurrent Requests</label>
+              <input type="number" id="scrape-concurrent-requests" class="input" value="3" min="1" max="10" step="1">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="scrape-respect-robots" checked>
+              <span class="checkbox-custom"></span>
+              Respect robots.txt
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="scrape-enable-cache" checked>
+              <span class="checkbox-custom"></span>
+              Enable response caching
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         SECTION 3: AUTO-FILL TEMPLATES
+         ========================================================= -->
+    <div class="section" id="section-autofill-templates">
+      <div class="section-header">
+        <h1 class="section-title">&#128221; Auto-fill Templates</h1>
+        <p class="section-desc">Create, manage, and configure templates for AI-powered form auto-filling.</p>
+        <div class="section-actions" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-accent" id="save-autofill-templates">Save Auto-fill Settings</button>
+          <span class="save-status" id="save-status-autofill" style="font-size:12px;color:#64748b;"></span>
+        </div>
+      </div>
+
+      <!-- Subsection: Template List -->
+      <div class="subsection" id="subsection-template-list">
+        <div class="subsection-header" data-toggle="subsection-template-list-body">
+          <h2 class="subsection-title">Templates</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-template-list-body">
+
+          <div class="toolbar">
+            <button class="btn btn-accent" id="btn-new-template">+ New Template</button>
+            <button class="btn btn-secondary" id="btn-import-templates">Import</button>
+            <button class="btn btn-secondary" id="btn-export-templates">Export</button>
+          </div>
+
+          <div class="template-card-list" id="template-card-list">
+            <!-- Template cards rendered by JS -->
+            <div class="empty-state" id="template-empty-state">
+              <p>No templates yet. Click "New Template" to create one.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Template Editor (hidden until editing) -->
+      <div class="subsection" id="subsection-template-editor" style="display:none;">
+        <div class="subsection-header" data-toggle="subsection-template-editor-body">
+          <h2 class="subsection-title">Template Editor</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-template-editor-body">
+
+          <div class="form-group">
+            <label for="template-name">Template Name</label>
+            <input type="text" id="template-name" class="input" placeholder="e.g. Job Application Form">
+          </div>
+
+          <div class="form-group">
+            <label for="template-url-patterns">URL Patterns</label>
+            <textarea id="template-url-patterns" class="textarea" rows="2" placeholder="One pattern per line, e.g.:&#10;https://jobs.example.com/apply/*&#10;https://careers.example.com/*"></textarea>
+            <span class="helper-text">Glob patterns for URLs where this template activates</span>
+          </div>
+
+          <h3 class="group-label">Field Mappings</h3>
+          <div class="field-mapping-list" id="field-mapping-list">
+            <!-- Field mapping rows rendered by JS -->
+          </div>
+          <button class="btn btn-sm btn-ghost" id="btn-add-field-mapping">+ Add Field</button>
+
+          <!-- Field mapping row template (hidden, cloned by JS) -->
+          <div class="field-mapping-row template-row" id="field-mapping-template" style="display:none;">
+            <input type="text" class="input field-map-selector" placeholder="CSS selector (e.g. #first-name)">
+            <input type="text" class="input field-map-csv-col" placeholder="CSV column name">
+            <select class="select field-map-type">
+              <option value="text">Text</option>
+              <option value="email">Email</option>
+              <option value="phone">Phone</option>
+              <option value="date">Date</option>
+              <option value="number">Number</option>
+              <option value="select">Select/Dropdown</option>
+              <option value="checkbox">Checkbox</option>
+              <option value="textarea">Textarea</option>
+            </select>
+            <label class="checkbox-label compact">
+              <input type="checkbox" class="field-map-ai-enhance">
+              <span class="checkbox-custom"></span>
+              AI
+            </label>
+            <label class="checkbox-label compact">
+              <input type="checkbox" class="field-map-ai-validate">
+              <span class="checkbox-custom"></span>
+              Validate
+            </label>
+            <button class="btn btn-sm btn-danger field-map-remove" title="Remove">&#10005;</button>
+          </div>
+
+          <h3 class="group-label">Advanced AI Options</h3>
+          <div class="form-group">
+            <label for="template-ai-instructions">Custom AI Instructions</label>
+            <textarea id="template-ai-instructions" class="textarea" rows="3" placeholder="e.g. Always format phone numbers as (XXX) XXX-XXXX..."></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="template-ai-confidence">Min Confidence Threshold</label>
+              <input type="number" id="template-ai-confidence" class="input" value="0.8" min="0" max="1" step="0.05">
+            </div>
+            <div class="form-group half">
+              <label for="template-ai-retries">AI Retries on Failure</label>
+              <input type="number" id="template-ai-retries" class="input" value="2" min="0" max="5" step="1">
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <button class="btn btn-accent" id="btn-save-template">Save Template</button>
+            <button class="btn btn-secondary" id="btn-cancel-template">Cancel</button>
+            <button class="btn btn-danger" id="btn-delete-template">Delete</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: CSV Preview -->
+      <div class="subsection" id="subsection-csv-preview">
+        <div class="subsection-header" data-toggle="subsection-csv-preview-body">
+          <h2 class="subsection-title">CSV Data Preview</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-csv-preview-body">
+
+          <div class="toolbar">
+            <button class="btn btn-secondary" id="btn-upload-csv">Upload CSV</button>
+            <button class="btn btn-secondary" id="btn-paste-csv">Paste Data</button>
+            <button class="btn btn-accent" id="btn-test-fill">Test Fill</button>
+          </div>
+          <input type="file" id="csv-file-input" accept=".csv,.tsv,.txt" style="display:none;">
+          <div class="csv-preview-area" id="csv-preview-area">
+            <div class="empty-state">Upload or paste CSV data to preview.</div>
+          </div>
+          <div class="test-results" id="csv-test-results" style="display:none;">
+            <h4>Test Results</h4>
+            <div class="test-results-body" id="csv-test-results-body"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Automation Rules -->
+      <div class="subsection" id="subsection-automation-rules">
+        <div class="subsection-header" data-toggle="subsection-automation-rules-body">
+          <h2 class="subsection-title">Automation Rules</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-automation-rules-body">
+
+          <div class="form-group">
+            <label>Trigger</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="auto-trigger" id="auto-trigger-manual" value="manual" checked>
+                <span class="radio-custom"></span>
+                Manual (click to fill)
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="auto-trigger" id="auto-trigger-pageload" value="pageload">
+                <span class="radio-custom"></span>
+                On page load
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="auto-trigger" id="auto-trigger-focus" value="focus">
+                <span class="radio-custom"></span>
+                On field focus
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="auto-data-source">Data Source</label>
+            <select id="auto-data-source" class="select">
+              <option value="csv">Uploaded CSV</option>
+              <option value="sheets">Google Sheets</option>
+              <option value="salesforce">Salesforce</option>
+              <option value="manual">Manual entry</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="auto-submit-behavior">Submission Behavior</label>
+            <select id="auto-submit-behavior" class="select">
+              <option value="none">Do not submit</option>
+              <option value="confirm">Fill & confirm before submit</option>
+              <option value="auto">Auto-submit after fill</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="auto-error-handling">Error Handling</label>
+            <select id="auto-error-handling" class="select">
+              <option value="stop">Stop on first error</option>
+              <option value="skip">Skip failed fields</option>
+              <option value="retry">Retry with AI</option>
+              <option value="log">Log and continue</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         SECTION 4: INTEGRATIONS
+         ========================================================= -->
+    <div class="section" id="section-integrations">
+      <div class="section-header">
+        <h1 class="section-title">&#128279; Integrations</h1>
+        <p class="section-desc">Connect external services like Salesforce, Google Sheets, and webhooks.</p>
+        <div class="section-actions" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-accent" id="save-integrations">Save Integration Settings</button>
+          <span class="save-status" id="save-status-integrations" style="font-size:12px;color:#64748b;"></span>
+        </div>
+      </div>
+
+      <!-- Subsection: Salesforce -->
+      <div class="subsection" id="subsection-salesforce">
+        <div class="subsection-header" data-toggle="subsection-salesforce-body">
+          <h2 class="subsection-title">Salesforce</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-salesforce-body">
+
+          <div class="connection-status" id="salesforce-connection-status">
+            <span class="status-dot disconnected"></span>
+            <span>Not Connected</span>
+          </div>
+
+          <div class="form-group">
+            <label for="sf-instance-url">Instance URL</label>
+            <input type="url" id="sf-instance-url" class="input" placeholder="https://yourorg.my.salesforce.com">
+          </div>
+
+          <div class="form-group">
+            <label for="sf-access-token">Access Token</label>
+            <div class="api-key-row">
+              <input type="password" id="sf-access-token" class="input" placeholder="00D..." autocomplete="off">
+              <button class="btn btn-sm btn-secondary" id="btn-reveal-sf-token" title="Reveal">&#128065;</button>
+              <button class="btn btn-sm btn-accent" id="btn-test-sf">Test</button>
+            </div>
+            <div class="status-indicator" id="status-salesforce"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="sf-default-object">Default Object</label>
+            <select id="sf-default-object" class="select">
+              <option value="Lead">Lead</option>
+              <option value="Contact">Contact</option>
+              <option value="Account">Account</option>
+              <option value="Opportunity">Opportunity</option>
+              <option value="Case">Case</option>
+              <option value="custom">Custom Object...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="sf-custom-object">Custom Object API Name</label>
+            <input type="text" id="sf-custom-object" class="input" placeholder="CustomObject__c" style="display:none;">
+          </div>
+
+          <h3 class="group-label">Field Mappings</h3>
+          <div class="field-mapping-list" id="sf-field-mapping-list">
+            <!-- Rendered by JS -->
+          </div>
+          <button class="btn btn-sm btn-ghost" id="btn-add-sf-field-mapping">+ Add Mapping</button>
+
+          <h3 class="group-label">Sync Settings</h3>
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="sf-sync-frequency">Sync Frequency</label>
+              <select id="sf-sync-frequency" class="select">
+                <option value="manual">Manual</option>
+                <option value="realtime">Real-time</option>
+                <option value="5min">Every 5 minutes</option>
+                <option value="15min">Every 15 minutes</option>
+                <option value="hourly">Hourly</option>
+              </select>
+            </div>
+            <div class="form-group half">
+              <label for="sf-sync-direction">Sync Direction</label>
+              <select id="sf-sync-direction" class="select">
+                <option value="push">Push (Extension &#8594; SF)</option>
+                <option value="pull">Pull (SF &#8594; Extension)</option>
+                <option value="both">Bidirectional</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: DANMAN Backend -->
+      <div class="subsection" id="subsection-danman-backend">
+        <div class="subsection-header" data-toggle="subsection-danman-backend-body">
+          <h2 class="subsection-title">DANMAN Backend</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-danman-backend-body">
+
+          <div class="card">
+            <h3>DANMAN Backend</h3>
+            <p class="section-desc">Connect to your dedicated DANMAN-Backend Apps Script for data persistence, screenshots, and media storage.</p>
+            <div class="form-group">
+              <label for="backend-webhook-url">Backend Webhook URL</label>
+              <input type="url" id="backend-webhook-url" class="input" placeholder="https://script.google.com/macros/s/.../exec">
+              <small class="form-hint">Deploy DANMAN-Backend.gs as a web app and paste the URL here.</small>
+            </div>
+            <div class="form-group">
+              <label for="backend-webhook-secret">Webhook Secret</label>
+              <div style="display:flex;gap:8px;">
+                <input type="password" id="backend-webhook-secret" class="input" placeholder="Auto-generated during setup" style="flex:1;">
+                <button type="button" class="btn btn-secondary" id="reveal-backend-secret">Show</button>
+              </div>
+              <small class="form-hint">Generated when you run init_setup. Paste it here.</small>
+            </div>
+            <div class="form-group">
+              <label for="backend-folder-id">Master Drive Folder ID</label>
+              <input type="text" id="backend-folder-id" class="input" placeholder="Folder ID from init_setup response">
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:12px;">
+              <button class="btn btn-accent" id="test-backend-btn">Test Connection</button>
+              <span id="backend-test-status" style="font-size:12px;"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Google Sheets -->
+      <div class="subsection" id="subsection-google-sheets">
+        <div class="subsection-header" data-toggle="subsection-google-sheets-body">
+          <h2 class="subsection-title">Google Sheets</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-google-sheets-body">
+
+          <div class="form-group">
+            <label for="gs-spreadsheet-id">Spreadsheet ID</label>
+            <input type="text" id="gs-spreadsheet-id" class="input" placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms">
+            <span class="helper-text">Found in the spreadsheet URL between /d/ and /edit</span>
+          </div>
+
+          <div class="form-group">
+            <label>Sheet Selector</label>
+            <div class="sheet-selector-area" id="gs-sheet-selector">
+              <div class="empty-state">Enter a Spreadsheet ID and connect to load sheets.</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="gs-oauth-token">OAuth Token</label>
+            <div class="api-key-row">
+              <input type="password" id="gs-oauth-token" class="input" placeholder="ya29...." autocomplete="off">
+              <button class="btn btn-sm btn-secondary" id="btn-reveal-gs-oauth" title="Reveal">&#128065;</button>
+            </div>
+            <span class="helper-text">OAuth Playground scopes: Drive, Sheets, Gmail, Apps Script (script.projects + script.scriptapp). Host access: drive.googleapis.com, gmail.googleapis.com, script.googleapis.com, script.google.com.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="gs-api-key">API Key (fallback)</label>
+            <div class="api-key-row">
+              <input type="password" id="gs-api-key" class="input" placeholder="AIza..." autocomplete="off">
+              <button class="btn btn-sm btn-secondary" id="btn-reveal-gs-apikey" title="Reveal">&#128065;</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Connection Method</label>
+            <div class="toggle-switch-group">
+              <label class="toggle-switch-label">
+                <input type="radio" name="gs-method" id="gs-method-api" value="api" checked>
+                <span class="toggle-switch-text">API</span>
+              </label>
+              <label class="toggle-switch-label">
+                <input type="radio" name="gs-method" id="gs-method-webhook" value="webhook">
+                <span class="toggle-switch-text">Webhook</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group" id="gs-webhook-url-group" style="display:none;">
+            <label for="gs-webhook-url">Webhook URL</label>
+            <input type="url" id="gs-webhook-url" class="input" placeholder="https://script.google.com/macros/s/.../exec">
+          </div>
+
+          <div class="form-group" id="gs-webhook-secret-group" style="display:none;">
+            <label for="gs-webhook-secret">Webhook Secret</label>
+            <div class="api-key-row">
+              <input type="password" id="gs-webhook-secret" class="input" placeholder="Shared secret from Script Properties" autocomplete="off">
+              <button class="btn btn-sm btn-secondary" id="btn-reveal-gs-secret" title="Reveal">&#128065;</button>
+            </div>
+            <span class="helper-text">Must match WEBHOOK_SHARED_SECRET in your Apps Script Script Properties</span>
+          </div>
+
+          <h3 class="group-label">Output Destinations</h3>
+          <div class="checkbox-grid">
+            <label class="checkbox-label">
+              <input type="checkbox" id="gs-output-new-row" checked>
+              <span class="checkbox-custom"></span>
+              Append new rows
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="gs-output-update-existing">
+              <span class="checkbox-custom"></span>
+              Update existing rows
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="gs-output-new-sheet">
+              <span class="checkbox-custom"></span>
+              Create new sheet per session
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="gs-sync-frequency">Sync Frequency</label>
+            <select id="gs-sync-frequency" class="select">
+              <option value="manual">Manual</option>
+              <option value="realtime">Real-time</option>
+              <option value="batch">Batch (on session end)</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Webhooks -->
+      <div class="subsection" id="subsection-webhooks">
+        <div class="subsection-header" data-toggle="subsection-webhooks-body">
+          <h2 class="subsection-title">Webhooks</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-webhooks-body">
+
+          <h3 class="group-label">Incoming Webhook</h3>
+          <div class="form-group">
+            <label for="webhook-incoming-url">Your Webhook URL</label>
+            <div class="input-button-row">
+              <input type="text" id="webhook-incoming-url" class="input" readonly placeholder="Generated on first use">
+              <button class="btn btn-sm btn-secondary" id="btn-copy-incoming-webhook" title="Copy URL">&#128203;</button>
+              <button class="btn btn-sm btn-accent" id="btn-regenerate-webhook">Regenerate</button>
+            </div>
+            <span class="helper-text">External services can POST data to this URL to trigger actions</span>
+          </div>
+
+          <h3 class="group-label">Outgoing Webhook Endpoints</h3>
+          <div class="webhook-endpoints-list" id="webhook-endpoints-list">
+            <!-- Rendered by JS -->
+            <div class="empty-state" id="webhook-empty-state">No outgoing endpoints configured.</div>
+          </div>
+          <button class="btn btn-sm btn-accent" id="btn-add-webhook-endpoint">+ Add Endpoint</button>
+
+        </div>
+      </div>
+
+      <!-- Subsection: API Cost Tracking -->
+      <div class="subsection" id="subsection-cost-tracking">
+        <div class="subsection-header" data-toggle="subsection-cost-tracking-body">
+          <h2 class="subsection-title">API Cost Tracking</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-cost-tracking-body">
+
+          <div class="cost-display" id="cost-monthly-usage">
+            <div class="cost-card">
+              <span class="cost-label">This Month</span>
+              <span class="cost-value" id="cost-month-total">$0.00</span>
+            </div>
+            <div class="cost-card">
+              <span class="cost-label">Today</span>
+              <span class="cost-value" id="cost-today-total">$0.00</span>
+            </div>
+            <div class="cost-card">
+              <span class="cost-label">Requests</span>
+              <span class="cost-value" id="cost-request-count">0</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="cost-budget-monthly">Monthly Budget Alert ($)</label>
+              <input type="number" id="cost-budget-monthly" class="input" value="50" min="0" step="5">
+            </div>
+            <div class="form-group half">
+              <label for="cost-budget-daily">Daily Budget Alert ($)</label>
+              <input type="number" id="cost-budget-daily" class="input" value="10" min="0" step="1">
+            </div>
+          </div>
+
+          <button class="btn btn-secondary" id="btn-export-cost-report">Export Cost Report</button>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         SECTION 5: ADVANCED OPTIONS
+         ========================================================= -->
+    <div class="section" id="section-advanced">
+      <div class="section-header">
+        <h1 class="section-title">&#9881;&#65039; Advanced Options</h1>
+        <p class="section-desc">Logging, performance tuning, experimental features, extension health, and privacy controls.</p>
+        <div class="section-actions" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-accent" id="save-advanced">Save Advanced Settings</button>
+          <span class="save-status" id="save-status-advanced" style="font-size:12px;color:#64748b;"></span>
+        </div>
+      </div>
+
+      <!-- Subsection: Logging -->
+      <div class="subsection" id="subsection-logging">
+        <div class="subsection-header" data-toggle="subsection-logging-body">
+          <h2 class="subsection-title">Logging</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-logging-body">
+
+          <div class="form-group">
+            <label>Log Level</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="log-level" id="log-level-production" value="production" checked>
+                <span class="radio-custom"></span>
+                Production
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="log-level" id="log-level-development" value="development">
+                <span class="radio-custom"></span>
+                Development
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="log-level" id="log-level-verbose" value="verbose">
+                <span class="radio-custom"></span>
+                Verbose
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="log-level" id="log-level-debug" value="debug">
+                <span class="radio-custom"></span>
+                Debug
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Log Types</label>
+            <div class="checkbox-grid">
+              <label class="checkbox-label">
+                <input type="checkbox" id="log-type-api" checked>
+                <span class="checkbox-custom"></span>
+                API Calls
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="log-type-scraping" checked>
+                <span class="checkbox-custom"></span>
+                Scraping Events
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="log-type-form" checked>
+                <span class="checkbox-custom"></span>
+                Form Fill Actions
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="log-type-errors" checked>
+                <span class="checkbox-custom"></span>
+                Errors
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="log-type-performance">
+                <span class="checkbox-custom"></span>
+                Performance Metrics
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="log-type-network">
+                <span class="checkbox-custom"></span>
+                Network
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="log-storage-max">Max Log Storage (MB)</label>
+            <input type="number" id="log-storage-max" class="input" value="10" min="1" max="100" step="1">
+            <span class="helper-text">Oldest logs are purged when limit is reached</span>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="log-session-tracking" checked>
+              <span class="checkbox-custom"></span>
+              Enable session tracking (group logs by session)
+            </label>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Performance Tuning -->
+      <div class="subsection" id="subsection-performance-tuning">
+        <div class="subsection-header" data-toggle="subsection-performance-tuning-body">
+          <h2 class="subsection-title">Performance Tuning</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-performance-tuning-body">
+
+          <h3 class="group-label">Cache Settings</h3>
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="perf-cache-ttl">Cache TTL (minutes)</label>
+              <input type="number" id="perf-cache-ttl" class="input" value="60" min="1" max="1440" step="5">
+            </div>
+            <div class="form-group half">
+              <label for="perf-cache-max-size">Max Cache Size (MB)</label>
+              <input type="number" id="perf-cache-max-size" class="input" value="50" min="5" max="500" step="5">
+            </div>
+          </div>
+
+          <h3 class="group-label">Concurrency</h3>
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="perf-max-workers">Max Background Workers</label>
+              <input type="number" id="perf-max-workers" class="input" value="4" min="1" max="16" step="1">
+            </div>
+            <div class="form-group half">
+              <label for="perf-max-queue-size">Max Queue Size</label>
+              <input type="number" id="perf-max-queue-size" class="input" value="100" min="10" max="1000" step="10">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Queue Strategy</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="perf-queue-strategy" id="perf-queue-fifo" value="fifo" checked>
+                <span class="radio-custom"></span>
+                FIFO (First In, First Out)
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="perf-queue-strategy" id="perf-queue-lifo" value="lifo">
+                <span class="radio-custom"></span>
+                LIFO (Last In, First Out)
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="perf-queue-strategy" id="perf-queue-priority" value="priority">
+                <span class="radio-custom"></span>
+                Priority-based
+              </label>
+            </div>
+          </div>
+
+          <h3 class="group-label">Optimizations</h3>
+          <div class="checkbox-grid">
+            <label class="checkbox-label">
+              <input type="checkbox" id="perf-lazy-load" checked>
+              <span class="checkbox-custom"></span>
+              Lazy load modules
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="perf-debounce-input" checked>
+              <span class="checkbox-custom"></span>
+              Debounce input events
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="perf-compress-storage">
+              <span class="checkbox-custom"></span>
+              Compress stored data
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="perf-prefetch">
+              <span class="checkbox-custom"></span>
+              Prefetch linked pages
+            </label>
+          </div>
+
+          <h3 class="group-label">Resource Limits</h3>
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="perf-max-memory">Max Memory (MB)</label>
+              <input type="number" id="perf-max-memory" class="input" value="256" min="64" max="1024" step="64">
+            </div>
+            <div class="form-group half">
+              <label for="perf-max-cpu-time">Max CPU Time per Task (ms)</label>
+              <input type="number" id="perf-max-cpu-time" class="input" value="5000" min="500" max="30000" step="500">
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Experimental Features -->
+      <div class="subsection" id="subsection-experimental">
+        <div class="subsection-header" data-toggle="subsection-experimental-body">
+          <h2 class="subsection-title">Experimental Features</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-experimental-body">
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div>
+                <h4 class="feature-name">AI Vision Mode</h4>
+                <p class="feature-desc">Use screenshot analysis to identify and fill form fields visually.</p>
+              </div>
+              <div class="feature-toggle-area">
+                <span class="status-badge beta">Beta</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="exp-ai-vision">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div>
+                <h4 class="feature-name">Smart Field Detection</h4>
+                <p class="feature-desc">Automatically detect and map form fields using ML heuristics.</p>
+              </div>
+              <div class="feature-toggle-area">
+                <span class="status-badge alpha">Alpha</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="exp-smart-field-detect">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div>
+                <h4 class="feature-name">Parallel Scraping Engine</h4>
+                <p class="feature-desc">Use Web Workers for parallel page scraping (higher memory use).</p>
+              </div>
+              <div class="feature-toggle-area">
+                <span class="status-badge experimental">Experimental</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="exp-parallel-scrape">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div>
+                <h4 class="feature-name">Natural Language Commands</h4>
+                <p class="feature-desc">Control the extension with plain English instructions via the sidebar.</p>
+              </div>
+              <div class="feature-toggle-area">
+                <span class="status-badge beta">Beta</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="exp-nl-commands">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Subsection: Extension Health -->
+      <div class="subsection" id="subsection-extension-health">
+        <div class="subsection-header" data-toggle="subsection-extension-health-body">
+          <h2 class="subsection-title">Extension Health</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-extension-health-body">
+
+          <h3 class="group-label">System Status</h3>
+          <div class="health-grid">
+            <div class="health-indicator">
+              <span class="status-dot" id="health-dot-background"></span>
+              <span>Background Worker</span>
+              <span class="health-value" id="health-val-background">--</span>
+            </div>
+            <div class="health-indicator">
+              <span class="status-dot" id="health-dot-storage"></span>
+              <span>Storage</span>
+              <span class="health-value" id="health-val-storage">--</span>
+            </div>
+            <div class="health-indicator">
+              <span class="status-dot" id="health-dot-api"></span>
+              <span>API Connectivity</span>
+              <span class="health-value" id="health-val-api">--</span>
+            </div>
+            <div class="health-indicator">
+              <span class="status-dot" id="health-dot-content-script"></span>
+              <span>Content Script</span>
+              <span class="health-value" id="health-val-content-script">--</span>
+            </div>
+          </div>
+
+          <h3 class="group-label">Performance Metrics</h3>
+          <div class="health-grid">
+            <div class="health-indicator">
+              <span>Avg. Response Time</span>
+              <span class="health-value" id="health-metric-response-time">--</span>
+            </div>
+            <div class="health-indicator">
+              <span>Memory Usage</span>
+              <span class="health-value" id="health-metric-memory">--</span>
+            </div>
+            <div class="health-indicator">
+              <span>Storage Used</span>
+              <span class="health-value" id="health-metric-storage-used">--</span>
+            </div>
+            <div class="health-indicator">
+              <span>Uptime</span>
+              <span class="health-value" id="health-metric-uptime">--</span>
+            </div>
+          </div>
+
+          <h3 class="group-label">Error Log</h3>
+          <div class="error-log-area" id="health-error-log">
+            <div class="empty-state">No recent errors.</div>
+          </div>
+
+          <h3 class="group-label">Maintenance</h3>
+          <div class="toolbar maintenance-toolbar">
+            <button class="btn btn-secondary" id="btn-refresh-worker">Refresh Worker</button>
+            <button class="btn btn-secondary" id="btn-clear-data">Clear Data</button>
+            <button class="btn btn-danger" id="btn-reset-defaults">Reset Defaults</button>
+            <button class="btn btn-secondary" id="btn-export-backup">Export Backup</button>
+            <button class="btn btn-secondary" id="btn-import-backup">Import Backup</button>
+          </div>
+          <input type="file" id="backup-file-input" accept=".json" style="display:none;">
+
+        </div>
+      </div>
+
+      <!-- Subsection: Privacy -->
+      <div class="subsection" id="subsection-privacy">
+        <div class="subsection-header" data-toggle="subsection-privacy-body">
+          <h2 class="subsection-title">Privacy</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-privacy-body">
+
+          <h3 class="group-label">Data Retention</h3>
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="privacy-log-retention">Log Retention (days)</label>
+              <input type="number" id="privacy-log-retention" class="input" value="30" min="1" max="365" step="1">
+            </div>
+            <div class="form-group half">
+              <label for="privacy-session-retention">Session Retention (days)</label>
+              <input type="number" id="privacy-session-retention" class="input" value="90" min="1" max="365" step="1">
+            </div>
+          </div>
+
+          <h3 class="group-label">Data Collection</h3>
+          <div class="checkbox-grid">
+            <label class="checkbox-label">
+              <input type="checkbox" id="privacy-collect-usage" checked>
+              <span class="checkbox-custom"></span>
+              Anonymous usage statistics
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="privacy-collect-errors" checked>
+              <span class="checkbox-custom"></span>
+              Error reports
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="privacy-collect-performance">
+              <span class="checkbox-custom"></span>
+              Performance telemetry
+            </label>
+          </div>
+
+          <h3 class="group-label">Encryption</h3>
+          <div class="health-indicator">
+            <span>Local Storage Encryption</span>
+            <span class="status-badge active" id="privacy-encryption-status">Active</span>
+          </div>
+
+          <h3 class="group-label">Your Data</h3>
+          <div class="toolbar">
+            <button class="btn btn-secondary" id="btn-export-data">Export All Data</button>
+            <button class="btn btn-danger" id="btn-delete-all-data">Delete All Data</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Hotkey Configuration -->
+      <div class="subsection">
+        <div class="subsection-header" data-toggle="hotkey-config">
+          <span class="subsection-title">Hotkey Configuration</span>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body" id="subsection-hotkey-config">
+          <div class="form-group">
+            <label for="hotkey-form-fill">Form Fill Trigger</label>
+            <div class="input-button-row">
+              <input class="input" type="text" id="hotkey-form-fill" readonly placeholder="Click Record, then press your key combo">
+              <button class="btn btn-secondary btn-sm" id="btn-record-hotkey">Record</button>
+              <button class="btn btn-ghost btn-sm" id="btn-reset-hotkey">Reset</button>
+            </div>
+            <span class="helper-text">Default: Ctrl+Shift+Win+V. Click Record, then press your desired key combination.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         SECTION 6: MEMORY SYSTEM
+         ========================================================= -->
+    <div class="section" id="section-memory">
+      <div class="section-header">
+        <h1 class="section-title">&#129504; Memory System</h1>
+        <p class="section-desc">Configure DANMAN's memory for context-aware AI assistance. Initialize storage, manage projects, and fine-tune personality.</p>
+        <div class="section-actions" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-accent" id="save-memory-config">Save Memory Settings</button>
+          <span class="save-status" id="save-status-memory" style="font-size:12px;color:#64748b;"></span>
+        </div>
+      </div>
+
+      <!-- Memory Status -->
+      <div class="subsection" id="subsection-memory-status">
+        <div class="subsection-header" data-toggle="subsection-memory-status-body">
+          <h2 class="subsection-title">Memory Status</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-memory-status-body">
+          <div id="memory-status-indicator" style="padding:12px;background:#1e293b;border-radius:8px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span id="memory-status-dot" style="width:10px;height:10px;border-radius:50%;background:#64748b;display:inline-block;"></span>
+              <span id="memory-status-text" style="color:#94a3b8;font-size:13px;">Checking...</span>
+            </div>
+            <div id="memory-stats-grid" style="display:none;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">
+              <div style="text-align:center;"><div style="color:#38bdf8;font-size:18px;font-weight:700;" id="mem-stat-total">0</div><div style="color:#64748b;font-size:10px;">Total Memories</div></div>
+              <div style="text-align:center;"><div style="color:#22c55e;font-size:18px;font-weight:700;" id="mem-stat-projects">0</div><div style="color:#64748b;font-size:10px;">Projects</div></div>
+              <div style="text-align:center;"><div style="color:#f59e0b;font-size:18px;font-weight:700;" id="mem-stat-active">—</div><div style="color:#64748b;font-size:10px;">Active Project</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Initialize Memory -->
+      <div class="subsection" id="subsection-memory-init">
+        <div class="subsection-header" data-toggle="subsection-memory-init-body">
+          <h2 class="subsection-title">Initialize Memory</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-memory-init-body">
+          <div class="form-group">
+            <label for="mem-drive-folder-id">Google Drive Folder ID</label>
+            <input type="text" id="mem-drive-folder-id" class="input" placeholder="e.g. 1ABC...xyz">
+            <span class="helper-text">The ID from your Google Drive folder URL. Memory data will be stored here.</span>
+          </div>
+          <div class="form-group">
+            <label for="mem-spreadsheet-id">Spreadsheet ID (optional)</label>
+            <input type="text" id="mem-spreadsheet-id" class="input" placeholder="Leave blank to auto-create">
+            <span class="helper-text">If you already have a DANMAN memory spreadsheet, enter its ID. Otherwise, one will be created.</span>
+          </div>
+          <button class="btn btn-accent" id="btn-memory-init" style="margin-top:8px;">Initialize Memory Storage</button>
+          <div id="memory-init-status" style="margin-top:8px;font-size:12px;color:#64748b;"></div>
+        </div>
+      </div>
+
+      <!-- Fine-Tuning & Personality -->
+      <div class="subsection" id="subsection-memory-finetuning">
+        <div class="subsection-header" data-toggle="subsection-memory-finetuning-body">
+          <h2 class="subsection-title">Fine-Tuning &amp; Personality</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body" id="subsection-memory-finetuning-body">
+          <div class="form-group">
+            <label for="mem-system-prompt">System Prompt Override</label>
+            <textarea id="mem-system-prompt" class="input" rows="4" placeholder="Custom system prompt for DANMAN AI interactions..."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="mem-persona-name">Persona Name</label>
+            <input type="text" id="mem-persona-name" class="input" placeholder="e.g. DANMAN, Danny, Assistant">
+          </div>
+          <div class="form-group">
+            <label for="mem-persona-tone">Persona Tone</label>
+            <select id="mem-persona-tone" class="input">
+              <option value="professional">Professional</option>
+              <option value="casual">Casual</option>
+              <option value="technical">Technical</option>
+              <option value="friendly">Friendly</option>
+            </select>
+          </div>
+          <button class="btn btn-accent" id="btn-save-finetuning" style="margin-top:8px;">Save Fine-Tuning</button>
+        </div>
+      </div>
+
+      <!-- Memory Projects -->
+      <div class="subsection" id="subsection-memory-projects">
+        <div class="subsection-header" data-toggle="subsection-memory-projects-body">
+          <h2 class="subsection-title">Memory Projects</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body" id="subsection-memory-projects-body">
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <input type="text" id="mem-new-project" class="input" placeholder="New project name..." style="flex:1;">
+            <button class="btn btn-accent" id="btn-create-project">Create</button>
+          </div>
+          <div id="memory-projects-list" style="min-height:40px;">
+            <div style="color:#64748b;font-size:12px;text-align:center;padding:12px;">Loading projects...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Memory Actions -->
+      <div class="subsection" id="subsection-memory-actions">
+        <div class="subsection-header" data-toggle="subsection-memory-actions-body">
+          <h2 class="subsection-title">Memory Actions</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body" id="subsection-memory-actions-body">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-secondary" id="btn-memory-export">Export Memory</button>
+            <button class="btn btn-secondary" id="btn-memory-refresh">Refresh Stats</button>
+            <button class="btn btn-danger" id="btn-memory-clear" style="background:#991b1b;color:#fca5a5;border-color:#991b1b;">Clear All Memory</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         SECTION 7: IMPORT / EXPORT CONFIG MANAGER
+         ========================================================= -->
+    <div class="section" id="section-config-manager">
+      <div class="section-header">
+        <h1 class="section-title">&#128230; Import / Export</h1>
+        <p class="section-desc">Import a config to skip manual setup, export your current config for backup, download a blank template to fill, and export activity logs.</p>
+      </div>
+
+      <!-- Import Config -->
+      <div class="subsection" id="subsection-import-config">
+        <div class="subsection-header" data-toggle="subsection-import-config-body">
+          <h2 class="subsection-title">Import Configuration</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-import-config-body">
+          <p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Upload a JSON config file to populate all settings at once. API keys, model selections, integrations, and scraping options will all be filled in. You still need to click Save in each section to persist.</p>
+          <div class="toolbar" style="gap:8px;">
+            <button class="btn btn-accent" id="btn-import-config-file">&#128194; Import Config (JSON)</button>
+            <input type="file" id="config-import-file-input" accept=".json,.csv" style="display:none;">
+          </div>
+          <div id="import-preview-area" style="display:none;margin-top:12px;">
+            <h4 style="color:#e2e8f0;font-size:13px;margin-bottom:8px;">Import Preview</h4>
+            <div id="import-preview-content" style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;font-family:'Consolas','Monaco',monospace;font-size:11px;color:#94a3b8;max-height:300px;overflow-y:auto;white-space:pre-wrap;"></div>
+            <div style="margin-top:10px;display:flex;gap:8px;">
+              <button class="btn btn-accent" id="btn-confirm-import">Apply Config</button>
+              <button class="btn btn-secondary" id="btn-cancel-import">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Config -->
+      <div class="subsection" id="subsection-export-config">
+        <div class="subsection-header" data-toggle="subsection-export-config-body">
+          <h2 class="subsection-title">Export Configuration</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-export-config-body">
+          <p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Download your current configuration as a JSON file. This includes API keys, model choices, integrations, and all settings. Keep this file safe — it contains sensitive keys.</p>
+          <div class="toolbar" style="gap:8px;">
+            <button class="btn btn-accent" id="btn-export-full-config">&#128190; Export Full Config (JSON)</button>
+            <button class="btn btn-secondary" id="btn-export-safe-config">&#128274; Export Safe Config (keys redacted)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Download Template -->
+      <div class="subsection" id="subsection-config-template">
+        <div class="subsection-header" data-toggle="subsection-config-template-body">
+          <h2 class="subsection-title">Config Template</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-config-template-body">
+          <p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Download a blank template JSON with all configurable fields and placeholder values. Fill it out in any text editor, then import it above.</p>
+          <button class="btn btn-accent" id="btn-download-template">&#128196; Download Blank Template</button>
+        </div>
+      </div>
+
+      <!-- Export Logs -->
+      <div class="subsection" id="subsection-export-logs">
+        <div class="subsection-header" data-toggle="subsection-export-logs-body">
+          <h2 class="subsection-title">Export Logs</h2>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="subsection-body open" id="subsection-export-logs-body">
+          <p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Export activity logs, error reports, and session data for debugging or record-keeping.</p>
+          <div class="toolbar" style="gap:8px;">
+            <button class="btn btn-accent" id="btn-export-logs-json">&#128203; Export Logs (JSON)</button>
+            <button class="btn btn-secondary" id="btn-export-logs-csv">&#128203; Export Logs (CSV)</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /main-content -->
+
+  <!-- ===== FLOATING ACTION BUTTON ===== -->
+  <button class="fab" id="fab-configure-test" title="Configure & Test">
+    &#9889; Configure &amp; Test
+  </button>
+
+  <!-- ===== TOAST CONTAINER ===== -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../background/core/browser.js"></script>
+  <script src="../core/model-catalog.js"></script>
+  <script src="../core/google-ids.js"></script>
+  <script src="../core/config.js"></script>
+  <script src="options-api-test.js"></script>
+  <script src="../core/tree-renderer.js"></script>
+  <script src="../core/tree-export.js"></script>
+  <script src="../core/tree-diagram.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<!-- popup.html - Danny Protocol -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 280px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #0f172a; color: #e2e8f0; }
+    .header { padding: 16px; text-align: center; border-bottom: 1px solid #334155; }
+    .logo { font-size: 18px; font-weight: 700; color: #38bdf8; }
+    .version { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .menu { padding: 8px; }
+    .menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+                 border-radius: 8px; cursor: pointer; color: #e2e8f0; font-size: 13px;
+                 text-decoration: none; border: none; background: none; width: 100%; text-align: left; }
+    .menu-item:hover { background: #1e293b; }
+    .menu-icon { font-size: 16px; width: 24px; text-align: center; }
+    .menu-desc { font-size: 10px; color: #64748b; margin-top: 1px; }
+    .divider { height: 1px; background: #334155; margin: 4px 8px; }
+    .footer { padding: 8px 16px 12px; text-align: center; }
+    .footer-text { font-size: 10px; color: #475569; line-height: 1.4; }
+    .footer-text a { color: #38bdf8; text-decoration: none; }
+    .status { font-size: 10px; color: #f59e0b; text-align: center; padding: 4px; display: none; }
+    .drive-section { padding: 12px 8px; background: #1e293b; border-radius: 8px; margin: 8px 8px 4px 8px; }
+    .drive-title { font-size: 12px; font-weight: 600; color: #38bdf8; margin-bottom: 8px; }
+    .drive-input-group { margin-bottom: 8px; }
+    .drive-input { width: 100%; padding: 6px 8px; background: #0f172a; border: 1px solid #334155; 
+                   border-radius: 6px; color: #e2e8f0; font-size: 11px; }
+    .drive-input:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 4px rgba(56, 189, 248, 0.3); }
+    .drive-connection-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .indicator.green { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+    .indicator.red { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+    .indicator.yellow { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+    .connection-status { font-size: 11px; color: #94a3b8; }
+    .connection-status.success { color: #22c55e; }
+    .connection-status.error { color: #ef4444; }
+    .test-button { padding: 6px 12px; background: #38bdf8; color: #0f172a; border: none; 
+                   border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; width: 100%; }
+    .test-button:hover { background: #06b6d4; }
+    .test-button:active { opacity: 0.9; }
+    .test-button.loading { opacity: 0.6; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">&#9889; GetPower DANMAN</div>
+    <div class="version">v6.9.0</div>
+  </div>
+  <div id="status" class="status"></div>
+  <div class="menu">
+    <button class="menu-item" id="open-sidebar">
+      <span class="menu-icon">&#9776;</span>
+      <div>
+        <div>Open Sidebar</div>
+        <div class="menu-desc">Scrape, chat, extract, RAG tree</div>
+      </div>
+    </button>
+    <button class="menu-item" id="native-toggle">
+      <span class="menu-icon">&#9707;</span>
+      <div>
+        <div id="native-toggle-label">Native sidebar: off</div>
+        <div class="menu-desc" id="native-toggle-desc">Sidebar opens inside the page. Switch on to use the browser sidebar instead.</div>
+      </div>
+    </button>
+    <button class="menu-item" id="site-toggle">
+      <span class="menu-icon">&#9209;</span>
+      <div>
+        <div id="site-toggle-label">Disable on this site</div>
+        <div class="menu-desc" id="site-toggle-desc">No trigger, clipboard capture or page watch here</div>
+      </div>
+    </button>
+    <button class="menu-item" id="open-settings">
+      <span class="menu-icon">&#9881;</span>
+      <div>
+        <div>Settings</div>
+        <div class="menu-desc">API keys, models, integrations</div>
+      </div>
+    </button>
+    <button class="menu-item" id="clipboard-manager">
+      <span class="menu-icon">&#128203;</span>
+      <div>
+        <div>Clipboard Manager</div>
+        <div class="menu-desc">View and manage clipboard history</div>
+      </div>
+    </button>
+    <div class="divider"></div>
+    <div class="drive-section">
+      <div class="drive-title">Drive Connection</div>
+      <div class="drive-input-group">
+        <input type="text" id="drive-folder-id" class="drive-input" placeholder="Enter Folder ID" />
+      </div>
+      <div class="drive-connection-row">
+        <span id="drive-indicator" class="indicator"></span>
+        <span id="drive-status-text" class="connection-status">Not tested</span>
+      </div>
+      <button id="test-drive-button" class="test-button">Test Connection</button>
+    </div>
+    <div class="divider"></div>
+    <button class="menu-item" id="quick-scrape">
+      <span class="menu-icon">&#128269;</span>
+      <div>
+        <div>Quick Scrape This Page</div>
+        <div class="menu-desc">Extract content from current tab</div>
+      </div>
+    </button>
+    <button class="menu-item" id="quick-tree">
+      <span class="menu-icon">&#127795;</span>
+      <div>
+        <div>RAG Tree This Page</div>
+        <div class="menu-desc">Crawl links from current tab</div>
+      </div>
+    </button>
+    <button class="menu-item" id="screenshot">
+      <span class="menu-icon">&#128247;</span>
+      <div>
+        <div>Screenshot This Page</div>
+        <div class="menu-desc">Capture visible tab for DANMAN analysis</div>
+      </div>
+    </button>
+  </div>
+  <div class="footer">
+    <div class="footer-text">
+      For API access, contact<br>
+      <a href="mailto:Danny.Huynh@CarrierEnterprise.com">Danny.Huynh@CarrierEnterprise.com</a>
+    </div>
+  </div>
+
+  <!-- External script required for Firefox MV3 CSP compliance -->
+  <script src="popup.js"></script>
+</body>
+</html>
+<!-- popup.html - Danny Protocol -->

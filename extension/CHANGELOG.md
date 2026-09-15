@@ -1,0 +1,53 @@
+# CHANGELOG
+
+## 2026-09-15
+- extension/sidebar/sidebar.js V004R068 — Native host mode: detects top-level (browser sidebar) vs embedded, tracks the active web tab, sends over tabs.sendMessage and accepts GPD_TO_SIDEBAR only from that tab; header buttons adapt
+- extension/content/content-main.js V005R092 — Native-sidebar transport: GPD_SIDEBAR_MSG route, postToSidebar over runtime messaging, sidebar command registry for other IIFEs, handleSidebarMessage extracted, element picker as a function, hint toast when the panel needs a user gesture
+- extension/content/clipboard-listener.js V004R037 — GPD_PASTE_FROM_SLOT arrives through the authenticated command registry instead of window messages
+- extension/background/core/security.js V002R009 — Allow GPD_TO_SIDEBAR and SIDEBAR_NATIVE_TOGGLE from content scripts
+- extension/background/service-worker.js V005R027 — toggleNativeSidebar() via sidebarAction; toggle-sidebar command and SIDEBAR_NATIVE_TOGGLE honour gpd_native_sidebar; GPD_TO_SIDEBAR acknowledged
+- extension/popup/popup.js V003R043 — Native sidebar on/off toggle; Open Sidebar uses sidebarAction.open() in native mode
+- extension/sidebar/tabs/eject-tab.js V003R007 — Sends via window.sendToContent (embedded postMessage or native runtime transport)
+- extension/sidebar/tabs/forms-tab.js V004R018 — Sends via window.sendToContent
+- extension/sidebar/tabs/links-tab.js V002R009 — Sends via window.sendToContent
+- extension/sidebar/tabs/macros-tab.js V002R015 — Sends via window.sendToContent
+- extension/sidebar/tabs/scrape-tab.js V002R009 — Sends via window.sendToContent
+- extension/manifest.json (no stamp — JSON) — sidebar_action (Firefox native sidebar panel, opt-in via popup)
+- extension/popup/popup.html (no stamp — HTML) — Native sidebar toggle menu item
+- test/smoke-chromium.js (updated) — Native-mode checks: no iframe, runtime round trip, non-active-tab spoof ignored, clean load (35 checks)
+- extension/content/content-main.js V004R111 — All in-page UI under one closed shadow host (page cannot reach trigger, hover panel, sidebar/float iframes); autofill engine refuses prepare/inject/auto-submit off the session's target_origin; per-site kill switch at init
+- extension/content/clipboard-listener.js V003R063 — Sidebar posts go through the shared frame API (frame now inside the closed shadow root); per-site kill switch at init
+- extension/sidebar/sidebar.js V003R006 — Expose DANMAN_hostTabId for tabs that need the host page (forms-tab origin stamp)
+- extension/sidebar/tabs/forms-tab.js V003R022 — Autofill session stamped with target_origin (host tab origin) when armed; warns if it cannot be read
+- extension/background/core/config.js V003R010 — clipboard.retention_minutes setting (0 = keep)
+- extension/background/service-worker.js V004R025 — Clip history pruned to clipboard.retention_minutes on load
+- extension/popup/popup.js V002R048 — "Disable/Enable on this site" toggle writing gpd_disabled_sites
+- extension/popup/popup.html (no stamp — HTML) — Menu item for the per-site kill switch
+- extension/manifest.json (no stamp — JSON) — web_accessible_resources reduced to sidebar.html + danman-float.html
+- test/danman-hostile-page.html (updated) — A1/A2/navigate rows report the closed shadow root
+- test/smoke-chromium.js (updated) — Shadow-root aware; A3 origin scoping and per-site disable checks (31 checks)
+- extension/background/core/memory.js V002R016 — Class renamed MemoryManagerImpl so the global lexical binding no longer shadows globalThis.MemoryManager (instance methods were unreachable)
+- extension/background/core/setup-wizard.js V002R015 — Class renamed SetupWizardImpl so it no longer shadows globalThis.SetupWizard (SETUP_* routes threw "not a function")
+- test/smoke-chromium.js (updated) — Checks that MemoryManager/SetupWizard resolve to instances and that no "is not a function" warnings appear
+- extension/content/content-main.js V003R016 — Share frame helpers with the form-fill IIFE (fixed ReferenceError on every window message); sidebar-sourced DANMAN_FLOAT_OPEN handled once
+- extension/background/service-worker.js V003R018 — Chromium importScripts list mirrors manifest background.scripts (was missing model-catalog, google-ids, master-log, bridge-registry, workbench-parser, soql-engine, security)
+- test/smoke-chromium.js (new) — Standalone Chromium smoke test: boots the extension, runs the hostile-page harness + legitimate flows, time-boxed
+- extension/background/core/security.js V001R220 — Initial creation — trust zones, frame tokens, URL policy for the background
+- extension/background/service-worker.js V002R070 — Trust-zone gate on the message router, FRAME_TOKEN_GET, webhook URL/redirect checks, crawl/rip fetch-target policy, Salesforce host check, content-zone MACRO_RUN restricted to last macro
+- extension/background/core/api.js V002R013 — Gemini API key moved from query string to x-goog-api-key header
+- extension/background/core/config.js V002R025 — validateEndpoints() on every config write; scraping.block_private_network setting
+- extension/background/core/bridge-registry.js V002R014 — Bridge URLs must pass the endpoint policy on save and post; redirect host verified
+- extension/background/core/tree-renderer.js V002R021 — Escape crawled titles/URLs before innerHTML
+- extension/background/danman-gas-bridge.js V002R009 — Webhook URL policy + redirect host check on webhookCall
+- extension/content/content-main.js V002R108 — isTrusted gates on trigger/hover/slot clicks; extension-origin check on every frame message; per-tab frame token on messages into frames; GPD_COPY_TO_CLIPBOARD over runtime messaging
+- extension/content/clipboard-listener.js V002R046 — Extension-origin check on window messages; frame token on sendToSidebar
+- extension/sidebar/sidebar.js V002R071 — Frame-token gate for parent messages (queued until token arrives); copyToClipboard over tabs.sendMessage
+- extension/sidebar/danman-float-init.js V002R024 — Frame-token gate for DANMAN_PAGE_ANALYSIS
+- extension/sidebar/tabs/forms-tab.js V002R015 — DANMAN_ELEMENT_PICKED read from authenticated gpd-message dispatch
+- extension/sidebar/tabs/clipboard-tab.js V002R017 — Capture/state updates read from authenticated gpd-message dispatch
+- extension/sidebar/tabs/eject-tab.js V002R016 — Legacy email messages read from authenticated gpd-message dispatch
+- extension/options/options.js V002R056 — Escape crawled titles/URLs in tree + progress; safe export redacts every secret-bearing field
+- gas-bridge-kit/DANMAN_Bridge.gs V002R027 — Fail closed: every request refused until BRIDGE_SECRET is set
+- gas-bridge-kit/Bridge_CopilotWorkbench.gs V002R010 — Comment: BRIDGE_SECRET is required (no legacy-open mode)
+- extension/manifest.json (no stamp — JSON) — Load background/core/security.js before the rest of the background
+- test/danman-hostile-page.html (new) — Hostile-page harness: press-button checks for A1/A2/A4/A5, eavesdropping, frame navigation
