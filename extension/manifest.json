@@ -41,6 +41,7 @@
     "scripts": [
       "background/core/browser.js",
       "background/core/utils.js",
+      "background/core/security.js",
       "background/core/dms-utils.js",
       "core/model-catalog.js",
       "core/google-ids.js",

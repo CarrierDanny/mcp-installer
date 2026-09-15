@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R070
+ * DATE: 2026-09-15
+ * CHANGE: Trust-zone gate on the message router, FRAME_TOKEN_GET, webhook URL/redirect checks, crawl/rip fetch-target policy, Salesforce host check, content-zone MACRO_RUN restricted to last macro
+ * HISTORY:
+ *   V001R4502 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // background/service-worker.js — GetPower DANMAN Service Worker
 
 // Load core modules - Chrome uses importScripts, Firefox uses manifest scripts
@@ -61,6 +68,7 @@ async function logToWebhook(eventType, details = {}) {
     const config = await ConfigManager.load();
     const webhookUrl = config.sheets?.webhook_url;
     if (!webhookUrl) return; // No webhook configured — skip silently
+    DANMAN_Security.assertWebhookUrl(webhookUrl, 'Sheets webhook URL'); // throws → best-effort skip
 
     const secret = config.sheets?.webhook_secret || '';
     await fetch(webhookUrl, {
@@ -110,6 +118,18 @@ async function logToWebhook(eventType, details = {}) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.type) {
     sendResponse({ error: 'Missing message type' });
+    return true;
+  }
+
+  // Trust-zone gate: content scripts (hostile-page tabs) may only send the
+  // message types enumerated in DANMAN_Security.CONTENT_ALLOWED_TYPES.
+  // Extension pages (sidebar, popout, options, popup) are unrestricted.
+  const policyError = (typeof DANMAN_Security !== 'undefined')
+    ? DANMAN_Security.routerPolicy(msg.type, sender)
+    : null;
+  if (policyError) {
+    console.warn('[DANMAN] Refused', msg.type, 'from', (sender && sender.url) || 'unknown sender');
+    sendResponse({ error: policyError });
     return true;
   }
 
@@ -199,6 +219,9 @@ async function handleMessage(msg, sender) {
     case 'DANMAN_POPOUT_CHAT': return handleDanmanPopoutChat(payload);
     case 'PING': return { ok: true, pong: true, sessionId: Logger.sessionId };
     case 'HEALTH_CHECK': return handleHealthCheck(sender);
+    // Per-tab token the content script and the in-page extension frames use
+    // to authenticate their postMessage traffic (see core/security.js).
+    case 'FRAME_TOKEN_GET': return DANMAN_Security.handleFrameTokenGet(sender);
 
     // === WORKBENCH SOQL (v6.9) ===
     case 'SOQL_GET_CATALOG':
@@ -388,7 +411,9 @@ async function handleMessage(msg, sender) {
     case 'MACRO_LOAD':          return handleMacroLoad(payload);
     case 'MACRO_SAVE':          return handleMacroSave(payload);
     case 'MACRO_DELETE':        return handleMacroDelete(payload);
-    case 'MACRO_RUN':           return handleMacroRun(payload);
+    // A content script may only re-run the last saved macro (hover panel
+    // button); inline workflows and options are accepted from extension pages.
+    case 'MACRO_RUN':           return handleMacroRun(DANMAN_Security.senderZone(sender) === 'content' ? {} : payload);
     case 'MACRO_PAUSE':         return handleMacroPause();
     case 'MACRO_RESUME':        return handleMacroResume();
     case 'MACRO_STOP':          return handleMacroStop();
@@ -1511,11 +1536,13 @@ async function handleSheetsWebhook(payload) {
   if (!webhookUrl) return { success: false, error: 'No webhook configured' };
 
   try {
+    DANMAN_Security.assertWebhookUrl(webhookUrl, 'Sheets webhook URL');
     const resp = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...payload, secret })
     });
+    DANMAN_Security.assertResponseHost(resp, webhookUrl);
     return await resp.json();
   } catch (e) {
     return { success: false, error: e.message };
@@ -1529,11 +1556,13 @@ async function handleBackendPost(payload) {
   if (!webhookUrl) return { success: false, error: 'Backend webhook not configured. Go to Settings > Integrations.' };
 
   try {
+    DANMAN_Security.assertWebhookUrl(webhookUrl, 'Backend webhook URL');
     const resp = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...payload, secret })
     });
+    DANMAN_Security.assertResponseHost(resp, webhookUrl);
     const text = await resp.text();
     try { return JSON.parse(text); }
     catch (_) { return { success: false, error: 'Non-JSON response', raw: text.slice(0, 500) }; }
@@ -1653,6 +1682,13 @@ async function handleSaveSession(payload, sender) {
 /** Start handler — kicks off the crawl in background, returns immediately */
 async function handleCrawlTree(payload) {
   const config = await ConfigManager.load();
+  const startTarget = DANMAN_Security.checkFetchTarget(payload.url, { blockPrivate: !!config.scraping?.block_private_network });
+  if (!startTarget.ok) {
+    const refused = 'Crawl start URL refused: ' + startTarget.reason;
+    // Sidebar tree tab polls crawl_tree_state rather than reading this reply.
+    await chrome.storage.local.set({ crawl_tree_state: { status: 'error', startUrl: payload.url, error: refused, tree: null, startedAt: Date.now() } });
+    return { status: 'error', error: refused, message: refused };
+  }
   const startUrl = payload.url;
   const maxDepth = Math.min(payload.depth || 3, 6);
 
@@ -1834,6 +1870,10 @@ async function _runCrawlTree(config, startUrl, maxDepth) {
    */
   async function fetchPageLinks(url) {
     try {
+      // Background fetch runs with host permissions and cookies: never let a
+      // crawled link steer it at loopback / link-local / cloud metadata hosts.
+      const target = DANMAN_Security.checkFetchTarget(url, { blockPrivate: !!config.scraping?.block_private_network });
+      if (!target.ok) return { title: url, links: [], error: 'blocked: ' + target.reason };
       if (useFirecrawl) {
         const resp = await fetch('https://api.firecrawl.dev/v1/scrape', {
           method: 'POST',
@@ -2300,6 +2340,9 @@ async function compareExtraction(extracted, config) {
         if (digits.length >= 7) searchTerms.push(digits.slice(-7));
       }
 
+      if (!DANMAN_Security.isSalesforceInstanceUrl(config.salesforce.instance_url)) {
+        throw new Error('Salesforce instance URL must be an https://*.salesforce.com or *.force.com address');
+      }
       for (const term of searchTerms) {
         const url = `${config.salesforce.instance_url}/services/data/v59.0/search/?q=${encodeURIComponent(`FIND {${term}} IN ALL FIELDS RETURNING Case(Id, CaseNumber, Subject), Contact(Id, Name, Email, Phone)`)}`;
         const resp = await fetch(url, {
@@ -2427,6 +2470,9 @@ async function handleEjectTransfer(payload) {
         }
       };
       const body = fieldMap[sfObject] || fieldMap.Case;
+      if (!DANMAN_Security.isSalesforceInstanceUrl(config.salesforce.instance_url)) {
+        throw new Error('Salesforce instance URL must be an https://*.salesforce.com or *.force.com address');
+      }
       const resp = await fetch(
         `${config.salesforce.instance_url}/services/data/v59.0/sobjects/${sfObject}`,
         {
@@ -3061,6 +3107,7 @@ async function handleDriveTestConnection(payload) {
     // Fallback: try listing via webhook
     const webhookUrl = config.sheets?.webhook_url;
     if (webhookUrl) {
+      DANMAN_Security.assertWebhookUrl(webhookUrl, 'Sheets webhook URL');
       const resp = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3408,6 +3455,19 @@ async function handleRipTab(payload) {
   const rip = results && results[0] && results[0].result;
   if (!rip) throw new Error('Extraction script returned nothing — the tab may block scripts');
 
+  // Page-supplied URLs (stylesheets, media, og:image) are fetched from the
+  // background with cookies — apply the fetch-target policy first.
+  const ripConfig = await ConfigManager.load();
+  const ripPolicy = { blockPrivate: !!ripConfig.scraping?.block_private_network };
+  const ripBlocked = [];
+  const ripAllowed = (list) => (Array.isArray(list) ? list : []).filter((u) => {
+    const t = DANMAN_Security.checkFetchTarget(u, ripPolicy);
+    if (!t.ok) ripBlocked.push(u + ' (' + t.reason + ')');
+    return t.ok;
+  });
+  rip.cssLinks = ripAllowed(rip.cssLinks);
+  rip.mediaUrls = ripAllowed(rip.mediaUrls);
+
   // Cross-origin stylesheets: fetch the text from the background (host perms)
   let extCss = '';
   for (const href of rip.cssLinks) {
@@ -3434,7 +3494,7 @@ async function handleRipTab(payload) {
   await put('widgets.json', JSON.stringify(rip.widgets, null, 2), 'application/json');
 
   // Media — capped fetches, base64 upload via the existing multipart path
-  const skipped = [];
+  const skipped = ripBlocked.slice();
   let mediaCount = 0;
   if (includeMedia) {
     for (const url of rip.mediaUrls) {
@@ -3541,6 +3601,11 @@ async function handleConfigSyncFromWebhook(payload) {
   if (!webhookUrl) {
     return { success: false, error: 'Enter Webhook_URL first (Apps Script /exec deployment).' };
   }
+  // This handler rewrites stored endpoints and later applies api_keys from
+  // the response, so the URL must pass the endpoint policy before anything
+  // is persisted or fetched.
+  try { DANMAN_Security.assertWebhookUrl(webhookUrl, 'Webhook URL'); }
+  catch (e) { return { success: false, error: e.message }; }
 
   // Persist credentials immediately so other surfaces see them.
   await ConfigManager.updateConfig({
@@ -3561,6 +3626,7 @@ async function handleConfigSyncFromWebhook(payload) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+    DANMAN_Security.assertResponseHost(resp, webhookUrl);
     const text = await resp.text();
     try { return JSON.parse(text); }
     catch (_) { throw new Error('Non-JSON response from webhook (' + resp.status + '): ' + text.slice(0, 180)); }

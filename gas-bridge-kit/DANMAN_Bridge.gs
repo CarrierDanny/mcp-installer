@@ -1,4 +1,11 @@
 /**
+ * VERSION: V002R027
+ * DATE: 2026-09-15
+ * CHANGE: Fail closed: every request refused until BRIDGE_SECRET is set
+ * HISTORY:
+ *   V001R173 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
+/**
  * DANMAN_Bridge.gs — universal bridge endpoint for ANY Google Apps Script project.
  * ─────────────────────────────────────────────────────────────────────────────
  * Drop this file into a GAS project and the GetPower DANMAN extension can:
@@ -22,9 +29,10 @@
  *      }
  *
  * 3. Set Script Property BRIDGE_SECRET (Project Settings → Script Properties)
- *    and put the same value in the extension's Bridge profile. If unset, the
- *    bridge runs OPEN (anyone with the /exec URL can call it) and `describe`
- *    reports auth:'open' so the extension can warn you.
+ *    and put the same value in the extension's Bridge profile. REQUIRED:
+ *    the bridge refuses every request (including ping/describe) until it is
+ *    set, because a web app deployed to "Anyone" is reachable by the whole
+ *    internet.
  *
  * Deploy as Web App (Execute as: Me, Access: Anyone) and paste the /exec URL
  * into the extension's Bridge tab with dialect "DANMAN Bridge kit".
@@ -74,9 +82,18 @@ function danmanBridgeHandle_(body) {
     var cfg = danmanBridgeConfig_();
     var secret = '';
     try { secret = PropertiesService.getScriptProperties().getProperty('BRIDGE_SECRET') || ''; } catch (e) {}
-    var authMode = secret ? 'secret' : 'open';
 
-    if (secret && String(body.secret || '') !== secret) {
+    // Fail closed. A web app deployed as "Anyone with the link" is reachable by
+    // the whole internet; without a shared secret every bridge tool (Drive,
+    // Sheets, get_config) would be open. Set BRIDGE_SECRET once in Project
+    // Settings → Script Properties and paste the same value into the
+    // extension's webhook secret field.
+    if (!secret) {
+      return { ok: false, error: 'Bridge locked: set Script Property BRIDGE_SECRET (Project Settings → Script Properties) and enter the same value as the webhook secret in the extension.' };
+    }
+    var authMode = 'secret';
+
+    if (String(body.secret || '') !== secret) {
       return { ok: false, error: 'Invalid or missing bridge secret.' };
     }
 

@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R071
+ * DATE: 2026-09-15
+ * CHANGE: Frame-token gate for parent messages (queued until token arrives); copyToClipboard over tabs.sendMessage
+ * HISTORY:
+ *   V001R249 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // sidebar/sidebar.js — Tab Controller & Message Bridge
 (function() {
   'use strict';
@@ -39,11 +46,19 @@
     window.parent.postMessage({ type: 'GPD_MINIMIZE_SIDEBAR' }, '*');
   });
 
-  // Listen for messages from content script (parent)
-  window.addEventListener('message', (event) => {
-    const msg = event.data;
-    if (!msg || !msg.type) return;
+  // ── Frame trust ────────────────────────────────────────────────────
+  // This iframe sits inside a web page, and page JS can postMessage into it
+  // exactly like the content script does (they share the parent window). The
+  // content script stamps every message with a per-tab token both sides fetch
+  // from the background over runtime messaging — the page cannot see that
+  // channel — and only stamped messages from the parent are delivered here.
+  // Every tab listens on the 'gpd-message' event this dispatches; nothing
+  // should read window 'message' events directly.
+  let frameToken = null;
+  let hostTabId = null;
+  const pendingFrameEvents = []; // messages that arrived before the token did
 
+  function deliverFrameMessage(msg) {
     // Dispatch to appropriate tab handler
     window.dispatchEvent(new CustomEvent('gpd-message', { detail: msg }));
 
@@ -51,7 +66,38 @@
     if (msg.type === 'GPD_SWITCH_TAB') {
       switchTab(msg.tab);
     }
+  }
+
+  window.addEventListener('message', (event) => {
+    const msg = event.data;
+    if (!msg || !msg.type) return;
+    if (event.source !== window.parent) return;
+    if (!frameToken) {
+      if (pendingFrameEvents.length < 100) pendingFrameEvents.push(msg);
+      return;
+    }
+    if (msg.__t !== frameToken) {
+      console.debug('[DANMAN] Dropped unauthenticated frame message:', msg.type);
+      return;
+    }
+    deliverFrameMessage(msg);
   });
+
+  (function fetchFrameToken(attempt) {
+    const B = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
+    let p;
+    try { p = B.runtime.sendMessage({ type: 'FRAME_TOKEN_GET' }); } catch (err) { p = Promise.reject(err); }
+    Promise.resolve(p).then((r) => {
+      if (!r || !r.token) throw new Error('no frame token');
+      frameToken = r.token;
+      hostTabId = typeof r.tabId === 'number' ? r.tabId : null;
+      const queued = pendingFrameEvents.splice(0);
+      queued.forEach((m) => { if (m.__t === frameToken) deliverFrameMessage(m); });
+    }).catch(() => {
+      if (attempt < 5) setTimeout(() => fetchFrameToken(attempt + 1), 400 * (attempt + 1));
+      else console.warn('[DANMAN] Frame token unavailable — content-script messages will be ignored');
+    });
+  })(0);
 
   function isBackgroundConnectionError(err) {
     const m = (err && err.message) ? err.message : String(err || '');
@@ -231,9 +277,22 @@
     window.parent.postMessage({ type, ...payload }, '*');
   };
 
-  // Helper: copy text to clipboard via content script
+  // Helper: copy text to clipboard via content script. Goes over runtime
+  // messaging so the host page cannot read what is being copied; falls back
+  // to the parent postMessage route only when the tab id is unknown.
   window.copyToClipboard = function(text) {
-    window.parent.postMessage({ type: 'GPD_COPY_TO_CLIPBOARD', text }, '*');
+    const B = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
+    if (hostTabId === null || !B.tabs || !B.tabs.sendMessage) {
+      window.parent.postMessage({ type: 'GPD_COPY_TO_CLIPBOARD', text }, '*');
+      return;
+    }
+    let p;
+    try { p = B.tabs.sendMessage(hostTabId, { type: 'GPD_COPY_TO_CLIPBOARD', text }); } catch (err) { p = Promise.reject(err); }
+    Promise.resolve(p).then((r) => {
+      deliverFrameMessage(Object.assign({ type: 'GPD_CLIPBOARD_DONE' }, r || { success: false, error: 'No response' }));
+    }).catch((err) => {
+      deliverFrameMessage({ type: 'GPD_CLIPBOARD_DONE', success: false, error: (err && err.message) || String(err) });
+    });
   };
 
   // Macro Studio events → sidebar tabs (Execute live log)

@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R017
+ * DATE: 2026-09-15
+ * CHANGE: Capture/state updates read from authenticated gpd-message dispatch
+ * HISTORY:
+ *   V001R956 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // clipboard-tab.js — DANMAN Clipboard Manager v6.9.0
 // Pre-ordained 20 slots, system clipboard capture, cross-tab sync, service-worker paste
 // Numpad toggle mode, reset-to-default, hotkeys work without sidebar open
@@ -374,11 +381,11 @@
   // LISTEN FOR CONTENT SCRIPT CAPTURES + CROSS-TAB SYNC
   // ============================================================================
 
-  window.addEventListener('message', function(e) {
-    // Content script posts into the sidebar iframe → e.source is parent, not window.
-    // Also accept same-window messages (tests / internal).
-    if (e.source !== window && e.source !== window.parent) return;
-    var msg = e.data;
+  // Content-script messages arrive through sidebar.js's authenticated
+  // 'gpd-message' dispatch (raw window 'message' events are also reachable
+  // by the host page and are no longer read here).
+  window.addEventListener('gpd-message', function(e) {
+    var msg = e.detail;
     if (!msg || typeof msg !== 'object') return;
 
     if (msg.type === 'GPD_CLIPBOARD_CAPTURE') {

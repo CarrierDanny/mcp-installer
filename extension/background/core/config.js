@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R025
+ * DATE: 2026-09-15
+ * CHANGE: validateEndpoints() on every config write; scraping.block_private_network setting
+ * HISTORY:
+ *   V001R275 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 const browserApi = (typeof Browser !== 'undefined') ? Browser : chrome;
 
 // Model catalog lives in core/model-catalog.js (loaded before this file per
@@ -98,6 +105,9 @@ const DEFAULT_CONFIG = {
     firecrawl_only_main: true,
     firecrawl_cache: false,
     user_agent: 'DANMAN/2.0',
+    // Crawl/rip fetches always refuse loopback, link-local and cloud-metadata
+    // hosts; turn this on to also refuse RFC1918 / intranet hosts.
+    block_private_network: false,
     tree_batch_size: 25
   },
   memory: {
@@ -203,8 +213,22 @@ const ConfigManager = {
     }
     return normalized;
   },
+  /** Refuse to persist endpoint URLs that fail the URL policy (see core/security.js). */
+  validateEndpoints(config) {
+    if (typeof DANMAN_Security === 'undefined' || !config) return;
+    const problems = [
+      DANMAN_Security.webhookUrlProblem(config.sheets && config.sheets.webhook_url, 'Sheets webhook URL'),
+      DANMAN_Security.webhookUrlProblem(config.backend && config.backend.webhook_url, 'Backend webhook URL')
+    ].filter(Boolean);
+    const sfUrl = config.salesforce && config.salesforce.instance_url;
+    if (sfUrl && !DANMAN_Security.isSalesforceInstanceUrl(sfUrl)) {
+      problems.push('Salesforce instance URL must be an https://*.salesforce.com or *.force.com address');
+    }
+    if (problems.length) throw new Error(problems.join('; '));
+  },
   async setConfig(config) {
     const normalized = normalizeConfig(config);
+    this.validateEndpoints(normalized);
     await browserApi.storage.set({ config: normalized });
     return normalized;
   },
@@ -220,6 +244,7 @@ const ConfigManager = {
       });
     }
     const updated = normalizeConfig(deepMerge(current, cleaned));
+    this.validateEndpoints(updated);
     await browserApi.storage.set({ config: updated });
     return updated;
   },

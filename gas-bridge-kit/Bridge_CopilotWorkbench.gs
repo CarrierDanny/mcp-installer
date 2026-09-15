@@ -1,4 +1,11 @@
 /**
+ * VERSION: V002R010
+ * DATE: 2026-09-15
+ * CHANGE: Comment: BRIDGE_SECRET is required (no legacy-open mode)
+ * HISTORY:
+ *   V001R422 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
+/**
  * =====================================================================
  * Bridge_CopilotWorkbench.gs — DANMAN Bridge tool registry
  * Backend: "Co-Pilot Workbench" GAS project (GAS HostKit + DANMAN
@@ -60,7 +67,8 @@
  *          ...
  *
  * (Existing Vault clients must then send {secret:'...'} in their POST
- * bodies. Leave BRIDGE_SECRET unset to keep legacy-open behavior.)
+ * bodies. BRIDGE_SECRET is required — DANMAN_Bridge.gs refuses every
+ * request until it is set.)
  *
  * GATE PASS-THROUGH
  * -----------------

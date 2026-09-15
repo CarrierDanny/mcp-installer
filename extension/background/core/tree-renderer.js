@@ -1,7 +1,19 @@
 /**
+ * VERSION: V002R021
+ * DATE: 2026-09-15
+ * CHANGE: Escape crawled titles/URLs before innerHTML
+ * HISTORY:
+ *   V001R158 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
+/**
  * Shared tree rendering utility.
  * Used by options/options.js and sidebar/tabs/tree-tab.js
  */
+// Crawled titles/URLs are untrusted page content — escape before innerHTML.
+function escapeTreeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 const TreeRenderer = {
   STATUS_COLORS: {
     done: '#22c55e', partial: '#a3e635', error: '#ef4444', max_depth: '#f59e0b',
@@ -46,7 +58,8 @@ const TreeRenderer = {
     const depthBadge = `<span style="font-size:10px;color:${statusColor};margin-left:4px;">D${depth}</span>`;
 
     const rawTitle = node.title || node.url || 'Unknown';
-    const displayTitle = rawTitle.length > maxLen ? rawTitle.substring(0, maxLen - 3) + '...' : rawTitle;
+    const displayTitle = escapeTreeHtml(rawTitle.length > maxLen ? rawTitle.substring(0, maxLen - 3) + '...' : rawTitle);
+    const safeUrl = escapeTreeHtml(node.url || '');
 
     const fontSize = compact ? '11px' : '12px';
     const padding = compact ? '2px 0' : '3px 0';
@@ -55,8 +68,8 @@ const TreeRenderer = {
       <div class="tree-row" style="display:flex;align-items:center;padding:${padding};border-left:2px solid ${statusColor};margin-left:${depth > 0 ? 8 : 0}px;padding-left:6px;">
         ${expandIcon}
         <label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin:0;color:#e2e8f0;font-size:${fontSize};flex:1;min-width:0;">
-          <input type="checkbox" class="tree-checkbox" checked data-url="${node.url || ''}" data-depth="${depth}" style="margin:0;flex-shrink:0;">
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${node.url || ''}">${statusIcon ? statusIcon + ' ' : ''}${displayTitle}</span>
+          <input type="checkbox" class="tree-checkbox" checked data-url="${safeUrl}" data-depth="${depth}" style="margin:0;flex-shrink:0;">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${safeUrl}">${statusIcon ? statusIcon + ' ' : ''}${displayTitle}</span>
         </label>
         ${depthBadge}${linkBadge}
       </div>`;
@@ -99,7 +112,7 @@ const TreeRenderer = {
   showProgress(container, data) {
     if (!container) return;
     const { url, maxDepth, pagesFound, uniqueUrls, currentUrl, currentDepth, batchesWritten, pendingBatchSize } = data;
-    const truncUrl = (currentUrl || url || '').length > 60 ? (currentUrl || url).substring(0, 57) + '...' : (currentUrl || url || '');
+    const truncUrl = escapeTreeHtml((currentUrl || url || '').length > 60 ? (currentUrl || url).substring(0, 57) + '...' : (currentUrl || url || ''));
 
     const batchInfo = batchesWritten != null
       ? `<div style="text-align:center;margin-top:8px;">

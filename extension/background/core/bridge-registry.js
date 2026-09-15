@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R014
+ * DATE: 2026-09-15
+ * CHANGE: Bridge URLs must pass the endpoint policy on save and post; redirect host verified
+ * HISTORY:
+ *   V001R472 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // background/core/bridge-registry.js — Universal Bridge.
 // Replaces the single hardcoded webhook with named Bridge Profiles, each
 // speaking its backend's dialect through an adapter. Features call
@@ -174,6 +181,8 @@
   async function post(profile, body, timeoutMs) {
     const url = normalizeUrl(profile.url);
     if (!url) throw new Error('Profile "' + (profile.label || profile.id) + '" has no URL');
+    // https only, no metadata/link-local hosts — the body carries the secret.
+    if (typeof DANMAN_Security !== 'undefined') DANMAN_Security.assertWebhookUrl(url, 'Bridge URL');
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs || 120000) : null;
     let resp, text;
@@ -185,6 +194,8 @@
         redirect: 'follow',
         signal: controller ? controller.signal : undefined
       });
+      // Apps Script 302s to googleusercontent.com; anything else is refused.
+      if (typeof DANMAN_Security !== 'undefined') DANMAN_Security.assertResponseHost(resp, url);
       text = await resp.text();
     } catch (e) {
       if (timer) clearTimeout(timer);
@@ -247,6 +258,9 @@
     },
 
     async save(profile) {
+      if (profile && profile.url && typeof DANMAN_Security !== 'undefined') {
+        DANMAN_Security.assertWebhookUrl(profile.url, 'Bridge URL');
+      }
       const { cfg, bridges } = await getState();
       const p = {
         id: profile.id || ('bridge-' + Math.random().toString(36).slice(2, 8)),

@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R108
+ * DATE: 2026-09-15
+ * CHANGE: isTrusted gates on trigger/hover/slot clicks; extension-origin check on every frame message; per-tab frame token on messages into frames; GPD_COPY_TO_CLIPBOARD over runtime messaging
+ * HISTORY:
+ *   V001R1344 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // content/content-main.js — GetPower DANMAN Content Script
 (function() {
   'use strict';
@@ -14,6 +21,48 @@
   const TRIGGER_OPEN_OFFSET = SIDEBAR_WIDTH - 100;
   let hoverPanel = null;
   let hoverPanelTimer = null;
+
+  // ============================================================
+  // FRAME TRUST
+  // ============================================================
+  // The sidebar/float iframes are extension pages, so a real message from
+  // them carries the extension origin. The host page cannot produce that.
+  const EXT_ORIGIN = (() => {
+    try { return String(chrome.runtime.getURL('')).replace(/\/+$/, ''); } catch (_) { return ''; }
+  })();
+  function fromExtensionFrame(event) {
+    return !!EXT_ORIGIN && event.origin === EXT_ORIGIN;
+  }
+  // Messages we post INTO those frames are stamped with a per-tab token that
+  // both sides fetch over runtime messaging (invisible to the page), so the
+  // frames can tell this script apart from page JS that shares the window.
+  let frameToken = null;
+  const frameTokenReady = (function fetchFrameToken(attempt) {
+    return new Promise((resolve) => {
+      let p;
+      try { p = chrome.runtime.sendMessage({ type: 'FRAME_TOKEN_GET' }); } catch (err) { p = Promise.reject(err); }
+      Promise.resolve(p).then((r) => {
+        if (!r || !r.token) throw new Error('no frame token');
+        frameToken = r.token;
+        resolve(r.token);
+      }).catch(() => {
+        if (attempt < 5) setTimeout(() => resolve(fetchFrameToken(attempt + 1)), 400 * (attempt + 1));
+        else resolve(null);
+      });
+    });
+  })(0);
+  function postToFrame(frame, msg) {
+    if (!frame || !frame.contentWindow) return;
+    frameTokenReady.then((token) => {
+      try {
+        // Target the extension origin explicitly: if the page ever navigates
+        // the iframe elsewhere, the browser drops the message instead of
+        // handing it (and the token) to that document.
+        if (frame.contentWindow) frame.contentWindow.postMessage(Object.assign({}, msg, { __t: token }), EXT_ORIGIN || '*');
+      } catch (_) {}
+    });
+  }
+  function postToSidebar(msg) { postToFrame(sidebarFrame, msg); }
 
   // ============================================================
   // MESSAGING
@@ -77,9 +126,10 @@
     triggerBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (!e.isTrusted) return; // page-synthesized clicks do not open the panel
       toggleSidebar();
     });
-    triggerBtn.addEventListener('mouseenter', () => scheduleHoverPanel());
+    triggerBtn.addEventListener('mouseenter', (e) => { if (e.isTrusted) scheduleHoverPanel(); });
     triggerBtn.addEventListener('mouseleave', () => cancelHoverPanel());
     document.body.appendChild(triggerBtn);
   }
@@ -198,6 +248,7 @@
         btn.addEventListener('mouseleave', () => { btn.style.borderColor = '#1e293b'; });
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
+          if (!e.isTrusted) return; // only a real click may paste a clip into the page
           safeSend({ type: 'CLIPBOARD_PASTE_TO_PAGE', payload: { slotIndex: i } });
           logClipboardEvent('info', 'HOVER_PASTE_SLOT', 'Paste slot ' + (i + 1), { slot: i + 1, type: slot.contentType || 'text' });
           cancelHoverPanel();
@@ -233,7 +284,7 @@
       b.type = 'button';
       b.textContent = a.label;
       b.style.cssText = 'padding:4px 8px;font-size:10px;border-radius:5px;border:1px solid #475569;background:#334155;color:#f8fafc;cursor:pointer;';
-      b.addEventListener('click', (e) => { e.stopPropagation(); a.fn(); if (a.label !== 'Refresh clips') cancelHoverPanel(); });
+      b.addEventListener('click', (e) => { e.stopPropagation(); if (!e.isTrusted) return; a.fn(); if (a.label !== 'Refresh clips') cancelHoverPanel(); });
       actions.appendChild(b);
     });
     hoverPanel.appendChild(actions);
@@ -306,7 +357,7 @@
 
     if (targetTab && sidebarFrame && sidebarFrame.contentWindow) {
       setTimeout(() => {
-        sidebarFrame.contentWindow.postMessage({ type: 'GPD_SWITCH_TAB', tab: targetTab }, '*');
+        postToSidebar({ type: 'GPD_SWITCH_TAB', tab: targetTab });
       }, 300);
     }
   }
@@ -336,7 +387,7 @@
 
     if (sidebarOpen && targetTab && sidebarFrame && sidebarFrame.contentWindow) {
       setTimeout(() => {
-        sidebarFrame.contentWindow.postMessage({ type: 'GPD_SWITCH_TAB', tab: targetTab }, '*');
+        postToSidebar({ type: 'GPD_SWITCH_TAB', tab: targetTab });
       }, 300);
     }
   }
@@ -773,7 +824,7 @@
         safeSend({ type: 'SCRAPE_RESULT', payload: data });
         // Also forward to sidebar
         if (sidebarFrame?.contentWindow) {
-          sidebarFrame.contentWindow.postMessage({ type: 'GPD_SCRAPE_RESULT', data }, '*');
+          postToSidebar({ type: 'GPD_SCRAPE_RESULT', data });
         }
         sendResponse(data);
         return false;
@@ -782,7 +833,7 @@
         const data = extractLinksFromPage();
         safeSend({ type: 'LINKS_RESULT', payload: data });
         if (sidebarFrame?.contentWindow) {
-          sidebarFrame.contentWindow.postMessage({ type: 'GPD_LINKS_RESULT', data }, '*');
+          postToSidebar({ type: 'GPD_LINKS_RESULT', data });
         }
         sendResponse(data);
         return false;
@@ -791,7 +842,7 @@
         const data = scanFormsOnPage();
         safeSend({ type: 'FORMS_RESULT', payload: data });
         if (sidebarFrame?.contentWindow) {
-          sidebarFrame.contentWindow.postMessage({ type: 'GPD_FORMS_RESULT', data }, '*');
+          postToSidebar({ type: 'GPD_FORMS_RESULT', data });
         }
         sendResponse(data);
         return false;
@@ -808,10 +859,18 @@
       }
       case 'SCRAPE_SELECTION': {
         if (sidebarFrame?.contentWindow) {
-          sidebarFrame.contentWindow.postMessage({ type: 'GPD_SELECTION_DATA', text: msg.payload.text }, '*');
+          postToSidebar({ type: 'GPD_SELECTION_DATA', text: msg.payload.text });
         }
         sendResponse({ ok: true });
         return false;
+      }
+      // Sidebar → clipboard over runtime messaging. The postMessage route to
+      // window.parent is readable by the host page; this one is not.
+      case 'GPD_COPY_TO_CLIPBOARD': {
+        navigator.clipboard.writeText(String(msg.text == null ? '' : msg.text))
+          .then(() => sendResponse({ success: true }))
+          .catch((err) => sendResponse({ success: false, error: err.message }));
+        return true;
       }
       // Bridges for v6.7 element-picker. element-picker.js exposes
       // window.DMS_Picker.start()/stop() but has no chrome.runtime listener;
@@ -931,8 +990,9 @@
     }
   });
 
-  // From floating chat iframe (postMessage)
+  // From floating chat iframe (postMessage) — extension-origin frames only
   window.addEventListener('message', (event) => {
+    if (!fromExtensionFrame(event)) return;
     if (!event.data || !event.data.type) return;
     const floatType = event.data.type;
 
@@ -967,7 +1027,7 @@
         text: document.body.innerText.slice(0, 3000)
       };
       const floatIframe = document.getElementById('danman-float-iframe');
-      if (floatIframe) floatIframe.contentWindow.postMessage({ type: 'DANMAN_PAGE_ANALYSIS', payload: pageData }, '*');
+      if (floatIframe) postToFrame(floatIframe, { type: 'DANMAN_PAGE_ANALYSIS', payload: pageData });
       return;
     }
     if (floatType === 'DANMAN_FLOAT_OPEN') {
@@ -979,13 +1039,14 @@
   // From sidebar iframe (postMessage)
   window.addEventListener('message', (event) => {
     if (!sidebarFrame || event.source !== sidebarFrame.contentWindow) return;
+    if (!fromExtensionFrame(event)) return; // frame navigated away by the page → ignore
     const msg = event.data;
     if (!msg || !msg.type) return;
 
     switch (msg.type) {
       case 'GPD_REQUEST_SCRAPE': {
         const data = scrapeCurrentPage();
-        sidebarFrame.contentWindow.postMessage({ type: 'GPD_SCRAPE_RESULT', data }, '*');
+        postToSidebar({ type: 'GPD_SCRAPE_RESULT', data });
         safeSend({ type: 'SCRAPE_RESULT', payload: data });
         break;
       }
@@ -998,24 +1059,24 @@
 
       case 'GPD_REQUEST_LINKS': {
         const data = extractLinksFromPage();
-        sidebarFrame.contentWindow.postMessage({ type: 'GPD_LINKS_RESULT', data }, '*');
+        postToSidebar({ type: 'GPD_LINKS_RESULT', data });
         safeSend({ type: 'LINKS_RESULT', payload: data });
         break;
       }
       case 'GPD_REQUEST_FORMS': {
         const data = scanFormsOnPage();
-        sidebarFrame.contentWindow.postMessage({ type: 'GPD_FORMS_RESULT', data }, '*');
+        postToSidebar({ type: 'GPD_FORMS_RESULT', data });
         safeSend({ type: 'FORMS_RESULT', payload: data });
         break;
       }
       case 'GPD_REQUEST_EMAIL': {
         const data = scrapeEmail();
-        sidebarFrame.contentWindow.postMessage({ type: 'GPD_EMAIL_RESULT', data }, '*');
+        postToSidebar({ type: 'GPD_EMAIL_RESULT', data });
         break;
       }
       case 'GPD_AUTOFILL': {
         const result = applyAutofill(msg.template);
-        sidebarFrame.contentWindow.postMessage({ type: 'GPD_AUTOFILL_DONE', result }, '*');
+        postToSidebar({ type: 'GPD_AUTOFILL_DONE', result });
         break;
       }
       case 'DANMAN_ANALYZE_PAGE_REQUEST': {
@@ -1031,7 +1092,7 @@
           meta: Array.from(document.querySelectorAll('meta[name],meta[property]')).map(m => ({name: m.name || m.getAttribute('property'), content: (m.content || '').slice(0, 200)})),
           text: document.body.innerText.slice(0, 3000)
         };
-        sidebarFrame.contentWindow.postMessage({ type: 'DANMAN_PAGE_ANALYSIS_RESULT', payload: pageData }, '*');
+        postToSidebar({ type: 'DANMAN_PAGE_ANALYSIS_RESULT', payload: pageData });
         break;
       }
       case 'DANMAN_FLOAT_OPEN':
@@ -1050,9 +1111,9 @@
         break;
       case 'GPD_COPY_TO_CLIPBOARD': {
         navigator.clipboard.writeText(msg.text).then(() => {
-          sidebarFrame.contentWindow.postMessage({ type: 'GPD_CLIPBOARD_DONE', success: true }, '*');
+          postToSidebar({ type: 'GPD_CLIPBOARD_DONE', success: true });
         }).catch(err => {
-          sidebarFrame.contentWindow.postMessage({ type: 'GPD_CLIPBOARD_DONE', success: false, error: err.message }, '*');
+          postToSidebar({ type: 'GPD_CLIPBOARD_DONE', success: false, error: err.message });
         });
         break;
       }
@@ -1113,7 +1174,7 @@
         }).catch(function () {});
         chrome.storage.local.set({ gpd_page_watch_latest: payload });
         if (sidebarFrame && sidebarFrame.contentWindow) {
-          sidebarFrame.contentWindow.postMessage({ type: 'DANMAN_PAGE_WATCH', payload: payload }, '*');
+          postToSidebar({ type: 'DANMAN_PAGE_WATCH', payload: payload });
         }
       });
     }
@@ -1293,14 +1354,16 @@
 
   // Hotkey listener removed — injection is triggered via sidebar buttons only
 
-  // Listen for sidebar messages
+  // Listen for sidebar messages (extension-origin frames only)
   window.addEventListener('message', function(event) {
+    if (!fromExtensionFrame(event)) return;
     if (event.data && event.data.type === 'DANMAN_INJECT_NEXT') injectNextField();
     if (event.data && event.data.type === 'DANMAN_INJECT_ALL') injectAllFields();
   });
 
   // Element picker for auto-submit button mapping
   window.addEventListener('message', function(event) {
+    if (!fromExtensionFrame(event)) return;
     if (event.data && event.data.type === 'DANMAN_PICK_ELEMENT') {
       document.body.style.cursor = 'crosshair';
       var overlay = document.createElement('div');
@@ -1333,10 +1396,7 @@
         var target = document.elementFromPoint(e.clientX, e.clientY);
         if (target) {
           var selector = buildSelector(target);
-          var sidebarFrame = document.getElementById('gpd-sidebar');
-          if (sidebarFrame) {
-            sidebarFrame.contentWindow.postMessage({ type: 'DANMAN_ELEMENT_PICKED', selector: selector }, '*');
-          }
+          postToSidebar({ type: 'DANMAN_ELEMENT_PICKED', selector: selector });
         }
       });
     }

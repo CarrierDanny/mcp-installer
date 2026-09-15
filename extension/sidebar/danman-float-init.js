@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R024
+ * DATE: 2026-09-15
+ * CHANGE: Frame-token gate for DANMAN_PAGE_ANALYSIS
+ * HISTORY:
+ *   V001R192 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // sidebar/danman-float-init.js — logic for the floating on-page chat bubble.
 // Lives in its own file because the extension-page CSP blocks inline scripts
 // (the previous inline <script> in danman-float.html never executed).
@@ -92,8 +99,25 @@ analyzeBtn.addEventListener('click', async () => {
   }
 });
 
+// Per-tab frame token (see background/core/security.js): the host page can
+// postMessage into this iframe too, so only stamped messages from the parent
+// are trusted.
+let floatFrameToken = null;
+(function fetchFrameToken(attempt) {
+  let p;
+  try { p = chrome.runtime.sendMessage({ type: 'FRAME_TOKEN_GET' }); } catch (err) { p = Promise.reject(err); }
+  Promise.resolve(p).then((r) => {
+    if (!r || !r.token) throw new Error('no frame token');
+    floatFrameToken = r.token;
+  }).catch(() => {
+    if (attempt < 5) setTimeout(() => fetchFrameToken(attempt + 1), 400 * (attempt + 1));
+  });
+})(0);
+
 // Listen for page analysis results from content script
 window.addEventListener('message', (event) => {
+  if (event.source !== window.parent) return;
+  if (!floatFrameToken || !event.data || event.data.__t !== floatFrameToken) return;
   if (event.data && event.data.type === 'DANMAN_PAGE_ANALYSIS') {
     const data = event.data.payload;
     const summary = 'Page: ' + (data.title || 'Unknown') + '\nURL: ' + (data.url || '') +

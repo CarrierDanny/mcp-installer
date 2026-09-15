@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R016
+ * DATE: 2026-09-15
+ * CHANGE: Legacy email messages read from authenticated gpd-message dispatch
+ * HISTORY:
+ *   V001R908 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // sidebar/tabs/eject-tab.js — EJECT Pipeline Tab (Full Implementation)
 (function() {
   'use strict';
@@ -883,12 +890,13 @@
     }
   });
 
-  // Also listen directly on window for postMessage from content script
-  window.addEventListener('message', (e) => {
-    const msg = e.data;
+  // Legacy email message names, delivered through the same authenticated
+  // gpd-message dispatch (GPD_EMAIL_RESULT is already handled above).
+  window.addEventListener('gpd-message', (e) => {
+    const msg = e.detail;
     if (!msg || !msg.type) return;
 
-    if (msg.type === 'GPD_EMAIL_SCRAPED' || msg.type === 'GPD_EMAIL_CONTENT' || msg.type === 'GPD_EMAIL_RESULT') {
+    if (msg.type === 'GPD_EMAIL_SCRAPED' || msg.type === 'GPD_EMAIL_CONTENT') {
       handleEmailScraped(msg);
     }
   });

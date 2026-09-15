@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R056
+ * DATE: 2026-09-15
+ * CHANGE: Escape crawled titles/URLs in tree + progress; safe export redacts every secret-bearing field
+ * HISTORY:
+ *   V001R2841 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // options/options.js — GetPower DANMAN Settings Page Orchestrator
 // Production-ready settings page with full config management
 (function () {
@@ -1042,7 +1049,8 @@
     /** Show crawl progress spinner with live stats */
     function showCrawlProgress(container, url, depth, pagesFound, uniqueUrls, currentUrl, currentDepth) {
       if (!container) return;
-      const truncUrl = (currentUrl || url).length > 60 ? (currentUrl || url).substring(0, 57) + '...' : (currentUrl || url);
+      const truncUrl = String((currentUrl || url).length > 60 ? (currentUrl || url).substring(0, 57) + '...' : (currentUrl || url))
+        .replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       container.innerHTML = `
         <div style="text-align:center;padding:32px;">
           <div class="crawl-spinner" style="display:inline-block;width:40px;height:40px;border:3px solid #334155;border-top:3px solid #38bdf8;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:16px;"></div>
@@ -1257,17 +1265,20 @@
     // Depth badge
     const depthBadge = `<span style="font-size:10px;color:${statusColor};margin-left:4px;">D${depth}</span>`;
 
-    // Truncate title for display
-    const displayTitle = (node.title || node.url || 'Unknown').length > 80
+    // Truncate title for display. Titles and URLs come from crawled pages —
+    // escape them before they go through innerHTML.
+    const escapeTree = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const displayTitle = escapeTree((node.title || node.url || 'Unknown').length > 80
       ? (node.title || node.url).substring(0, 77) + '...'
-      : (node.title || node.url || 'Unknown');
+      : (node.title || node.url || 'Unknown'));
+    const safeUrl = escapeTree(node.url || '');
 
     item.innerHTML = `
       <div class="tree-row" style="display:flex;align-items:center;padding:3px 0;border-left:2px solid ${statusColor};margin-left:${depth > 0 ? 8 : 0}px;padding-left:6px;">
         ${expandIcon}
         <label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin:0;color:#e2e8f0;font-size:12px;flex:1;min-width:0;">
-          <input type="checkbox" class="tree-checkbox" checked data-url="${node.url || ''}" data-depth="${depth}" style="margin:0;flex-shrink:0;">
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${node.url || ''}">${statusIcon ? statusIcon + ' ' : ''}${displayTitle}</span>
+          <input type="checkbox" class="tree-checkbox" checked data-url="${safeUrl}" data-depth="${depth}" style="margin:0;flex-shrink:0;">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${safeUrl}">${statusIcon ? statusIcon + ' ' : ''}${displayTitle}</span>
         </label>
         ${depthBadge}${linkBadge}
       </div>`;
@@ -2527,24 +2538,23 @@
         var cfg = JSON.parse(JSON.stringify(currentConfig));
         cfg._exported_at = new Date().toISOString();
         cfg._version = '6.9.0';
-        // Redact API keys
-        if (cfg.api_keys) {
-          Object.keys(cfg.api_keys).forEach(function(k) {
-            var v = cfg.api_keys[k];
-            if (v && v.length > 8) {
-              cfg.api_keys[k] = v.substring(0, 4) + '***REDACTED***' + v.substring(v.length - 4);
-            }
+        // Redact every secret-bearing field anywhere in the config tree —
+        // API keys keep a 4-char hint (as before); tokens, passwords,
+        // OAuth/client secrets and bridge secrets are fully masked.
+        var SECRET_KEY = /secret|token|password|passwd|api_key|apikey|credential|private_key|refresh/i;
+        (function redact(obj, path) {
+          if (!obj || typeof obj !== 'object') return;
+          Object.keys(obj).forEach(function(k) {
+            var v = obj[k];
+            if (v && typeof v === 'object') { redact(v, path + '.' + k); return; }
+            if (typeof v !== 'string' || !v) return;
+            var inApiKeys = /(^|\.)api_keys$/.test(path);
+            if (!inApiKeys && !SECRET_KEY.test(k)) return;
+            obj[k] = (inApiKeys && v.length > 8)
+              ? v.substring(0, 4) + '***REDACTED***' + v.substring(v.length - 4)
+              : '***REDACTED***';
           });
-        }
-        if (cfg.salesforce && cfg.salesforce.access_token) {
-          cfg.salesforce.access_token = '***REDACTED***';
-        }
-        if (cfg.sheets && cfg.sheets.webhook_secret) {
-          cfg.sheets.webhook_secret = '***REDACTED***';
-        }
-        if (cfg.backend && cfg.backend.webhook_secret) {
-          cfg.backend.webhook_secret = '***REDACTED***';
-        }
+        })(cfg, '');
         var blob = new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');

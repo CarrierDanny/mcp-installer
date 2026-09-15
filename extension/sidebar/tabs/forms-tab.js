@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R015
+ * DATE: 2026-09-15
+ * CHANGE: DANMAN_ELEMENT_PICKED read from authenticated gpd-message dispatch
+ * HISTORY:
+ *   V001R1283 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // sidebar/tabs/forms-tab.js — Form Scanner Tab
 (function() {
   'use strict';
@@ -995,10 +1002,12 @@
     this.style.color = '#0f172a';
   });
 
-  // Listen for picked element from content script
-  window.addEventListener('message', function(e) {
+  // Listen for picked element from content script (authenticated via
+  // sidebar.js's gpd-message dispatch — never raw window 'message' events)
+  window.addEventListener('gpd-message', function(ev) {
+    var e = { data: ev.detail };
     if (e.data && e.data.type === 'DANMAN_ELEMENT_PICKED') {
-      submitButtonSelector = e.data.selector;
+      submitButtonSelector = String(e.data.selector || '');
       const display = document.getElementById('submit-selector-display');
       if (display) display.textContent = submitButtonSelector;
       const pickBtn = document.getElementById('btn-pick-submit');

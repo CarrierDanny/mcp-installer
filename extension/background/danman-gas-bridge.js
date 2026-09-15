@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R009
+ * DATE: 2026-09-15
+ * CHANGE: Webhook URL policy + redirect host check on webhookCall
+ * HISTORY:
+ *   V001R330 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // background/danman-gas-bridge.js — Routes danman-popout.html google.script.run calls to extension APIs
 (function () {
   'use strict';
@@ -68,6 +75,7 @@
     const webhookUrl = normalizeWebhookUrl(config.sheets?.webhook_url);
     const secret = config.sheets?.webhook_secret || '';
     if (!webhookUrl) throw new Error('Sheets webhook URL not configured (Settings → Integrations)');
+    if (typeof DANMAN_Security !== 'undefined') DANMAN_Security.assertWebhookUrl(webhookUrl, 'Sheets webhook URL');
     const body = {
       secret,
       action,
@@ -90,6 +98,7 @@
         redirect: 'follow',
         signal: controller ? controller.signal : undefined
       });
+      if (typeof DANMAN_Security !== 'undefined') DANMAN_Security.assertResponseHost(resp, webhookUrl);
       text = await resp.text();
     } catch (e) {
       if (timer) clearTimeout(timer);

@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R013
+ * DATE: 2026-09-15
+ * CHANGE: Gemini API key moved from query string to x-goog-api-key header
+ * HISTORY:
+ *   V001R222 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // core/api.js — Multi-AI Provider Client
 async function readResponseBody(resp) {
   const contentType = (resp.headers.get('content-type') || '').toLowerCase();
@@ -105,10 +112,12 @@ const AIClient = {
       body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
     }
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        // Key travels in a header, not the query string, so it stays out of
+        // proxy/access logs and any error text that echoes the URL.
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify(body)
       }
     );

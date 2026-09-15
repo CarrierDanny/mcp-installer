@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R046
+ * DATE: 2026-09-15
+ * CHANGE: Extension-origin check on window messages; frame token on sendToSidebar
+ * HISTORY:
+ *   V001R690 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
+ */
 // content/clipboard-listener.js — DANMAN Clipboard Listener v6.9.0
 // Captures copy/cut events, tracks last focused editable element,
 // handles paste-from-slot via service worker, supports custom hotkey combos
@@ -12,6 +19,25 @@
   var SIDEBAR_CONTAINER_ID = 'gpd-sidebar-container';
   var SIDEBAR_FRAME_ID = 'gpd-sidebar';
   var B = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
+
+  // Frame trust — see content-main.js. Messages from the sidebar must carry
+  // the extension origin; messages we post to it carry the per-tab token.
+  var EXT_ORIGIN = (function () {
+    try { return String(B.runtime.getURL('')).replace(/\/+$/, ''); } catch (_) { return ''; }
+  })();
+  var frameTokenReady = (function fetchFrameToken(attempt) {
+    return new Promise(function (resolve) {
+      var p;
+      try { p = B.runtime.sendMessage({ type: 'FRAME_TOKEN_GET' }); } catch (err) { p = Promise.reject(err); }
+      Promise.resolve(p).then(function (r) {
+        if (!r || !r.token) throw new Error('no frame token');
+        resolve(r.token);
+      }).catch(function () {
+        if (attempt < 5) setTimeout(function () { resolve(fetchFrameToken(attempt + 1)); }, 400 * (attempt + 1));
+        else resolve(null);
+      });
+    });
+  })(0);
 
   // ============================================================================
   // STATE — Last focused editable element (tracked before sidebar steals focus)
@@ -47,14 +73,16 @@
   }
 
   function sendToSidebar(message) {
-    try {
-      var frame = getSidebarFrame();
-      if (frame && frame.contentWindow) {
-        frame.contentWindow.postMessage(message, '*');
+    frameTokenReady.then(function (token) {
+      try {
+        var frame = getSidebarFrame();
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage(Object.assign({}, message, { __t: token }), EXT_ORIGIN || '*');
+        }
+      } catch (err) {
+        console.warn('[DANMAN Clipboard] sendToSidebar error:', err);
       }
-    } catch (err) {
-      console.warn('[DANMAN Clipboard] sendToSidebar error:', err);
-    }
+    });
   }
 
   function sendToServiceWorker(message) {
@@ -429,9 +457,11 @@
   // ============================================================================
 
   function setupMessageListener() {
-    // Listen for postMessage from sidebar iframe (legacy path + clipboard captures)
+    // Listen for postMessage from sidebar iframe (legacy path + clipboard captures).
+    // Only extension-origin frames — the host page shares this window.
     window.addEventListener('message', function(event) {
       try {
+        if (!EXT_ORIGIN || event.origin !== EXT_ORIGIN) return;
         var msg = event.data;
         if (!msg || typeof msg !== 'object') return;
 
