@@ -1,8 +1,9 @@
 /**
- * VERSION: V004R111
+ * VERSION: V005R092
  * DATE: 2026-09-15
- * CHANGE: All in-page UI under one closed shadow host (page cannot reach trigger, hover panel, sidebar/float iframes); autofill engine refuses prepare/inject/auto-submit off the session's target_origin; per-site kill switch at init
+ * CHANGE: Native-sidebar transport: GPD_SIDEBAR_MSG route, postToSidebar over runtime messaging, sidebar command registry for other IIFEs, handleSidebarMessage extracted, element picker as a function, hint toast when the panel needs a user gesture
  * HISTORY:
+ *   V004R111 2026-09-15 All in-page UI under one closed shadow host (page cannot reach trigger, hover panel, sidebar/float iframes); autofill engine refuses prepare/inject/auto-submit off the session's target_origin; per-site kill switch at init
  *   V003R016 2026-09-15 Share frame helpers with the form-fill IIFE (fixed ReferenceError on every window message); sidebar-sourced DANMAN_FLOAT_OPEN handled once
  *   V002R108 2026-09-15 isTrusted gates on trigger/hover/slot clicks; extension-origin check on every frame message; per-tab frame token on messages into frames; GPD_COPY_TO_CLIPBOARD over runtime messaging
  *   V001R1344 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
@@ -38,6 +39,10 @@
   // Messages we post INTO those frames are stamped with a per-tab token that
   // both sides fetch over runtime messaging (invisible to the page), so the
   // frames can tell this script apart from page JS that shares the window.
+  // Native-sidebar mode (opt-in, gpd_native_sidebar): the sidebar is the
+  // browser's own panel, never an in-page iframe. Replies go over runtime
+  // messaging; the panel accepts them only from its window's active tab.
+  let nativeMode = false;
   let frameToken = null;
   const frameTokenReady = (function fetchFrameToken(attempt) {
     return new Promise((resolve) => {
@@ -64,7 +69,18 @@
       } catch (_) {}
     });
   }
-  function postToSidebar(msg) { postToFrame(sidebarFrame, msg); }
+  function postToSidebar(msg) {
+    if (nativeMode) { safeSend({ type: 'GPD_TO_SIDEBAR', msg }); return; }
+    postToFrame(sidebarFrame, msg);
+  }
+  // Other content-script IIFEs (form-fill engine, clipboard listener) receive
+  // sidebar commands through this registry — never through DOM events, which
+  // a page could forge.
+  const sidebarSubscribers = [];
+  function subscribeSidebar(fn) { if (typeof fn === 'function') sidebarSubscribers.push(fn); }
+  function notifySidebarSubscribers(msg) {
+    sidebarSubscribers.forEach((fn) => { try { fn(msg); } catch (err) { console.warn('[DANMAN] sidebar subscriber error:', err); } });
+  }
 
   // ============================================================
   // UI ROOT — closed shadow DOM
@@ -92,7 +108,7 @@
   // The form-fill engine below lives in its own IIFE; share the frame helpers
   // through the content-script world's window (invisible to page scripts —
   // isolated world in Chromium, Xray expando in Firefox).
-  try { Object.defineProperty(window, '__danmanFrame', { value: { fromExtensionFrame, postToSidebar, mount: (el) => ui().appendChild(el) } }); } catch (_) {}
+  try { Object.defineProperty(window, '__danmanFrame', { value: { fromExtensionFrame, postToSidebar, mount: (el) => ui().appendChild(el), subscribe: subscribeSidebar } }); } catch (_) {}
 
   // ============================================================
   // MESSAGING
@@ -162,6 +178,22 @@
     triggerBtn.addEventListener('mouseenter', (e) => { if (e.isTrusted) scheduleHoverPanel(); });
     triggerBtn.addEventListener('mouseleave', () => cancelHoverPanel());
     ui().appendChild(triggerBtn);
+  }
+
+  function nativeSidebarHint(reason) {
+    const el = document.createElement('div');
+    el.textContent = 'Open DANMAN with Ctrl+Shift+D or the toolbar button' + (reason ? ' (' + reason + ')' : '');
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:10px 16px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:8px;font:600 12px system-ui,sans-serif;z-index:2147483646;box-shadow:0 4px 12px rgba(0,0,0,0.4);';
+    ui().appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+  // In native mode the panel lives outside the page. sidebarAction.toggle()
+  // needs a user-input handler in Firefox, which a content-script message is
+  // not, so the background reports whether it could open and we hint otherwise.
+  function requestNativeSidebar() {
+    let p;
+    try { p = chrome.runtime.sendMessage({ type: 'SIDEBAR_NATIVE_TOGGLE' }); } catch (err) { p = Promise.reject(err); }
+    Promise.resolve(p).then((r) => { if (!r || !r.ok) nativeSidebarHint(); }).catch(() => nativeSidebarHint());
   }
 
   function scheduleHoverPanel() {
@@ -338,6 +370,7 @@
   // SIDEBAR
   // ============================================================
   function createSidebar() {
+    if (nativeMode) return; // never embed an iframe in native mode
     if (uiGet('gpd-sidebar-container')) return;
 
     const container = document.createElement('div');
@@ -375,6 +408,7 @@
   }
 
   function openSidebar(targetTab) {
+    if (nativeMode) { requestNativeSidebar(); return; }
     if (!sidebarFrame) createSidebar();
     const container = uiGet('gpd-sidebar-container');
     if (!container) return;
@@ -393,6 +427,7 @@
   }
 
   function toggleSidebar(targetTab) {
+    if (nativeMode) { requestNativeSidebar(); return; }
     if (!sidebarFrame) createSidebar();
     const container = uiGet('gpd-sidebar-container');
     if (!container) return;
@@ -894,6 +929,13 @@
         sendResponse({ ok: true });
         return false;
       }
+      // Native sidebar → content: the same commands the embedded iframe posts,
+      // carried over tabs.sendMessage (only extension contexts can send these).
+      case 'GPD_SIDEBAR_MSG': {
+        if (msg.msg && msg.msg.type) handleSidebarMessage(msg.msg);
+        sendResponse({ ok: true });
+        return false;
+      }
       // Sidebar → clipboard over runtime messaging. The postMessage route to
       // window.parent is readable by the host page; this one is not.
       case 'GPD_COPY_TO_CLIPBOARD': {
@@ -1069,13 +1111,18 @@
     }
   });
 
-  // From sidebar iframe (postMessage)
+  // From sidebar iframe (postMessage, embedded mode)
   window.addEventListener('message', (event) => {
     if (!sidebarFrame || event.source !== sidebarFrame.contentWindow) return;
     if (!fromExtensionFrame(event)) return; // frame navigated away by the page → ignore
     const msg = event.data;
     if (!msg || !msg.type) return;
+    handleSidebarMessage(msg);
+  });
 
+  // Commands from the sidebar (either transport)
+  function handleSidebarMessage(msg) {
+    notifySidebarSubscribers(msg);
     switch (msg.type) {
       case 'GPD_REQUEST_SCRAPE': {
         const data = scrapeCurrentPage();
@@ -1151,7 +1198,7 @@
         break;
       }
     }
-  });
+  }
 
   // ============================================================
   // EMAIL DETECTION BADGE
@@ -1168,6 +1215,12 @@
   // ============================================================
   // INIT
   // ============================================================
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.gpd_native_sidebar) nativeMode = !!changes.gpd_native_sidebar.newValue;
+    });
+  } catch (_) {}
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
@@ -1178,8 +1231,9 @@
     // Per-site kill switch (popup → "Disable DANMAN on this site"): no UI,
     // no page watch, no email probe here. The sidebar can still be opened
     // explicitly from the popup.
-    chrome.storage.local.get('gpd_disabled_sites', (r) => {
+    chrome.storage.local.get(['gpd_disabled_sites', 'gpd_native_sidebar'], (r) => {
       const list = (r && Array.isArray(r.gpd_disabled_sites)) ? r.gpd_disabled_sites : [];
+      nativeMode = !!(r && r.gpd_native_sidebar);
       if (list.indexOf(location.origin) !== -1) {
         console.log('[DANMAN] Disabled on this site (' + location.origin + ')');
         return;
@@ -1421,17 +1475,21 @@
 
   // Hotkey listener removed — injection is triggered via sidebar buttons only
 
-  // Listen for sidebar messages (extension-origin frames only)
-  window.addEventListener('message', function(event) {
-    if (!fromExtensionFrame(event)) return;
-    if (event.data && event.data.type === 'DANMAN_INJECT_NEXT') injectNextField();
-    if (event.data && event.data.type === 'DANMAN_INJECT_ALL') injectAllFields();
-  });
+  // Sidebar commands arrive through the main IIFE's authenticated dispatch
+  // (embedded postMessage with token/origin checks, or the native runtime
+  // transport). Never through raw window events.
+  if (frameApi && frameApi.subscribe) {
+    frameApi.subscribe(function(msg) {
+      if (!msg || !msg.type) return;
+      if (msg.type === 'DANMAN_INJECT_NEXT') injectNextField();
+      if (msg.type === 'DANMAN_INJECT_ALL') injectAllFields();
+      if (msg.type === 'DANMAN_PICK_ELEMENT') startElementPicker();
+    });
+  }
 
   // Element picker for auto-submit button mapping
-  window.addEventListener('message', function(event) {
-    if (!fromExtensionFrame(event)) return;
-    if (event.data && event.data.type === 'DANMAN_PICK_ELEMENT') {
+  function startElementPicker() {
+    {
       document.body.style.cursor = 'crosshair';
       var overlay = document.createElement('div');
       overlay.id = 'danman-picker-overlay';
@@ -1467,5 +1525,5 @@
         }
       });
     }
-  });
+  }
 })();

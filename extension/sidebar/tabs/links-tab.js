@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R009
+ * DATE: 2026-09-15
+ * CHANGE: Sends via window.sendToContent
+ * HISTORY:
+ *   V001R230 2026-08-26 Baseline import (unstamped)
+ */
 // sidebar/tabs/links-tab.js — Link Extractor Tab
 (function() {
   'use strict';
@@ -79,7 +86,7 @@
     btn.textContent = 'Scanning...';
     progressBar.start(2);
     progressBar.update(1, 'Scanning page for links...');
-    window.parent.postMessage({ type: 'GPD_REQUEST_LINKS' }, '*');
+    window.sendToContent('GPD_REQUEST_LINKS');
 
     // Timeout fallback
     setTimeout(() => {

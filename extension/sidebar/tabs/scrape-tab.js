@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R009
+ * DATE: 2026-09-15
+ * CHANGE: Sends via window.sendToContent
+ * HISTORY:
+ *   V001R643 2026-08-26 Baseline import (unstamped)
+ */
 // sidebar/tabs/scrape-tab.js — Web Scraper Tab
 (function() {
   'use strict';
@@ -118,7 +125,7 @@
     btn.textContent = 'Scraping...';
     progressBar.start(3);
     progressBar.update(1, 'Requesting page data...');
-    window.parent.postMessage({ type: 'GPD_REQUEST_SCRAPE' }, '*');
+    window.sendToContent('GPD_REQUEST_SCRAPE');
 
     // Timeout fallback
     setTimeout(() => {

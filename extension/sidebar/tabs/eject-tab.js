@@ -1,8 +1,9 @@
 /**
- * VERSION: V002R016
+ * VERSION: V003R007
  * DATE: 2026-09-15
- * CHANGE: Legacy email messages read from authenticated gpd-message dispatch
+ * CHANGE: Sends via window.sendToContent (embedded postMessage or native runtime transport)
  * HISTORY:
+ *   V002R016 2026-09-15 Legacy email messages read from authenticated gpd-message dispatch
  *   V001R908 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
 // sidebar/tabs/eject-tab.js — EJECT Pipeline Tab (Full Implementation)
@@ -649,7 +650,7 @@
 
   function scrapeEmail() {
     if (window.Toast) Toast.info('Requesting email from page...');
-    window.parent.postMessage({ type: 'GPD_REQUEST_EMAIL' }, '*');
+    window.sendToContent('GPD_REQUEST_EMAIL');
   }
 
   function clearInput() {

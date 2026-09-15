@@ -1,8 +1,9 @@
 /**
- * VERSION: V001R220
+ * VERSION: V002R009
  * DATE: 2026-09-15
- * CHANGE: Initial creation — trust zones, frame tokens, URL policy for the background
+ * CHANGE: Allow GPD_TO_SIDEBAR and SIDEBAR_NATIVE_TOGGLE from content scripts
  * HISTORY:
+ *   V001R220 2026-09-15 Initial creation — trust zones, frame tokens, URL policy for the background
  *   V001R220 2026-09-15 Initial creation
  */
 // background/core/security.js — trust-zone classification, frame tokens,
@@ -36,6 +37,10 @@ const DANMAN_Security = (() => {
     'MACRO_RUN', 'MACRO_PAUSE', 'CONTEXT_MACRO_RECORD_PICK',
     'LOG_ACTION',
     'FRAME_TOKEN_GET',
+    // native-sidebar transport: replies to the sidebar page ride runtime
+    // messaging (delivered to extension pages by broadcast; the router only
+    // acknowledges), and the trigger asks the background to toggle the panel
+    'GPD_TO_SIDEBAR', 'SIDEBAR_NATIVE_TOGGLE',
     // clipboard-listener.js
     'CLIPBOARD_GET_NUMPAD_MODE', 'CLIPBOARD_NEW_CAPTURE', 'CLIPBOARD_HOTKEY_PRESSED',
     // dms-recorder.js / element-picker.js broadcasts (consumed by sidebar pages;

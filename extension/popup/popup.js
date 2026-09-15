@@ -1,8 +1,9 @@
 /**
- * VERSION: V002R048
+ * VERSION: V003R043
  * DATE: 2026-09-15
- * CHANGE: "Disable/Enable on this site" toggle writing gpd_disabled_sites
+ * CHANGE: Native sidebar on/off toggle; Open Sidebar uses sidebarAction.open() in native mode
  * HISTORY:
+ *   V002R048 2026-09-15 "Disable/Enable on this site" toggle writing gpd_disabled_sites
  *   V001R367 2026-08-26 Baseline import (unstamped)
  */
 // popup.js — GetPower DANMAN Popup Controller
@@ -198,6 +199,13 @@
           showStatus('Navigate to a web page first');
           return;
         }
+        // Native-sidebar mode: the popup click is a user action, which is
+        // what sidebarAction.open() requires (a content-script message is not).
+        var native = await B.storage.local.get('gpd_native_sidebar');
+        if (native && native.gpd_native_sidebar && typeof browser !== 'undefined' && browser.sidebarAction) {
+          try { await browser.sidebarAction.open(); setTimeout(function () { window.close(); }, 200); return; }
+          catch (e) { console.warn('[DANMAN Popup] sidebarAction.open failed, falling back:', e); }
+        }
         var ok = await sendToTab(tab.id, { type: 'TOGGLE_SIDEBAR' });
         if (ok) {
           setTimeout(function () { window.close(); }, 200);
@@ -228,6 +236,36 @@
     label.textContent = (disabled ? 'Enable on ' : 'Disable on ') + origin.replace(/^https?:\/\//, '');
     desc.textContent = disabled ? 'DANMAN is off here — reload after enabling' : 'No trigger, clipboard capture or page watch here';
     return { origin: origin, list: list, disabled: disabled };
+  }
+
+  // Native sidebar (Firefox sidebar panel) instead of the in-page iframe.
+  async function refreshNativeToggle() {
+    var label = document.getElementById('native-toggle-label');
+    var desc = document.getElementById('native-toggle-desc');
+    if (!label) return false;
+    var r = await B.storage.local.get('gpd_native_sidebar');
+    var on = !!(r && r.gpd_native_sidebar);
+    label.textContent = on ? 'Native sidebar: on' : 'Native sidebar: off';
+    desc.textContent = on
+      ? 'Opens in the browser sidebar (Ctrl+Shift+D / this button). Pages cannot see it.'
+      : 'Sidebar opens inside the page. Switch on to use the browser sidebar instead.';
+    return on;
+  }
+  function setupNativeToggle() {
+    var btn = document.getElementById('native-toggle');
+    if (!btn) return;
+    refreshNativeToggle().catch(function () {});
+    btn.addEventListener('click', async function () {
+      try {
+        var on = await refreshNativeToggle();
+        await B.storage.local.set({ gpd_native_sidebar: !on });
+        await refreshNativeToggle();
+        showStatus(!on ? 'Native sidebar on — reload open pages' : 'In-page sidebar — reload open pages');
+      } catch (e) {
+        console.error('[DANMAN Popup] native toggle failed:', e);
+        showStatus('Could not update sidebar mode');
+      }
+    });
   }
 
   function setupSiteToggle() {
@@ -392,6 +430,7 @@
     // Attach all handlers
     setupOpenSidebar();
     setupSiteToggle();
+    setupNativeToggle();
     setupOpenSettings();
     setupClipboardManager();
     setupQuickScrape();

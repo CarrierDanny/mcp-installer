@@ -1,6 +1,20 @@
 # CHANGELOG
 
 ## 2026-09-15
+- extension/sidebar/sidebar.js V004R068 — Native host mode: detects top-level (browser sidebar) vs embedded, tracks the active web tab, sends over tabs.sendMessage and accepts GPD_TO_SIDEBAR only from that tab; header buttons adapt
+- extension/content/content-main.js V005R092 — Native-sidebar transport: GPD_SIDEBAR_MSG route, postToSidebar over runtime messaging, sidebar command registry for other IIFEs, handleSidebarMessage extracted, element picker as a function, hint toast when the panel needs a user gesture
+- extension/content/clipboard-listener.js V004R037 — GPD_PASTE_FROM_SLOT arrives through the authenticated command registry instead of window messages
+- extension/background/core/security.js V002R009 — Allow GPD_TO_SIDEBAR and SIDEBAR_NATIVE_TOGGLE from content scripts
+- extension/background/service-worker.js V005R027 — toggleNativeSidebar() via sidebarAction; toggle-sidebar command and SIDEBAR_NATIVE_TOGGLE honour gpd_native_sidebar; GPD_TO_SIDEBAR acknowledged
+- extension/popup/popup.js V003R043 — Native sidebar on/off toggle; Open Sidebar uses sidebarAction.open() in native mode
+- extension/sidebar/tabs/eject-tab.js V003R007 — Sends via window.sendToContent (embedded postMessage or native runtime transport)
+- extension/sidebar/tabs/forms-tab.js V004R018 — Sends via window.sendToContent
+- extension/sidebar/tabs/links-tab.js V002R009 — Sends via window.sendToContent
+- extension/sidebar/tabs/macros-tab.js V002R015 — Sends via window.sendToContent
+- extension/sidebar/tabs/scrape-tab.js V002R009 — Sends via window.sendToContent
+- extension/manifest.json (no stamp — JSON) — sidebar_action (Firefox native sidebar panel, opt-in via popup)
+- extension/popup/popup.html (no stamp — HTML) — Native sidebar toggle menu item
+- test/smoke-chromium.js (updated) — Native-mode checks: no iframe, runtime round trip, non-active-tab spoof ignored, clean load (35 checks)
 - extension/content/content-main.js V004R111 — All in-page UI under one closed shadow host (page cannot reach trigger, hover panel, sidebar/float iframes); autofill engine refuses prepare/inject/auto-submit off the session's target_origin; per-site kill switch at init
 - extension/content/clipboard-listener.js V003R063 — Sidebar posts go through the shared frame API (frame now inside the closed shadow root); per-site kill switch at init
 - extension/sidebar/sidebar.js V003R006 — Expose DANMAN_hostTabId for tabs that need the host page (forms-tab origin stamp)

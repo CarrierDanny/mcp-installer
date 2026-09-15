@@ -1,8 +1,9 @@
 /**
- * VERSION: V003R006
+ * VERSION: V004R068
  * DATE: 2026-09-15
- * CHANGE: Expose DANMAN_hostTabId for tabs that need the host page (forms-tab origin stamp)
+ * CHANGE: Native host mode: detects top-level (browser sidebar) vs embedded, tracks the active web tab, sends over tabs.sendMessage and accepts GPD_TO_SIDEBAR only from that tab; header buttons adapt
  * HISTORY:
+ *   V003R006 2026-09-15 Expose DANMAN_hostTabId for tabs that need the host page (forms-tab origin stamp)
  *   V002R071 2026-09-15 Frame-token gate for parent messages (queued until token arrives); copyToClipboard over tabs.sendMessage
  *   V001R249 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
@@ -39,12 +40,28 @@
     window.dispatchEvent(new CustomEvent('tab-activated', { detail: { tab: tabName } }));
   }
 
+  // ── Host mode ──────────────────────────────────────────────────────
+  // Embedded: this document is an iframe inside the web page (window.parent
+  // is the page). Native: it is the browser's own sidebar panel or a top-level
+  // extension page — no parent, no page can see or message it, and traffic
+  // to the content script goes over tabs.sendMessage to the active web tab.
+  const NATIVE = (window.parent === window);
+  const B = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
+  if (NATIVE) document.documentElement.setAttribute('data-danman-native', '');
+
   // Header buttons
   document.getElementById('btn-close')?.addEventListener('click', () => {
-    window.parent.postMessage({ type: 'GPD_CLOSE_SIDEBAR' }, '*');
+    if (NATIVE) {
+      try { if (typeof browser !== 'undefined' && browser.sidebarAction) browser.sidebarAction.close(); } catch (_) {}
+      return;
+    }
+    window.sendToContent('GPD_CLOSE_SIDEBAR');
   });
-  document.getElementById('btn-minimize')?.addEventListener('click', () => {
-    window.parent.postMessage({ type: 'GPD_MINIMIZE_SIDEBAR' }, '*');
+  const minimizeBtn = document.getElementById('btn-minimize');
+  if (minimizeBtn && NATIVE) minimizeBtn.style.display = 'none';
+  minimizeBtn?.addEventListener('click', () => {
+    if (NATIVE) return;
+    window.sendToContent('GPD_MINIMIZE_SIDEBAR');
   });
 
   // ── Frame trust ────────────────────────────────────────────────────
@@ -58,6 +75,37 @@
   let frameToken = null;
   let hostTabId = null;
   const pendingFrameEvents = []; // messages that arrived before the token did
+
+  // Native mode: follow the active web tab of this window; that is the tab
+  // whose content script we talk to, and the only sender whose replies we accept.
+  let activeWebTabId = null;
+  function setActiveWebTab(id) {
+    activeWebTabId = id;
+    hostTabId = id;
+    window.DANMAN_hostTabId = id;
+  }
+  async function trackActiveWebTab() {
+    try {
+      const tabs = await B.tabs.query({ active: true, currentWindow: true });
+      const t = tabs && tabs[0];
+      if (t && typeof t.id === 'number' && /^https?:/.test(t.url || '')) setActiveWebTab(t.id);
+    } catch (_) {}
+  }
+  if (NATIVE) {
+    trackActiveWebTab();
+    try {
+      B.tabs.onActivated.addListener(() => trackActiveWebTab());
+      B.tabs.onUpdated.addListener((id, info, tab) => { if (tab && tab.active && info && info.status === 'complete') trackActiveWebTab(); });
+    } catch (_) {}
+    try {
+      B.runtime.onMessage.addListener((req, sender) => {
+        if (!req || req.type !== 'GPD_TO_SIDEBAR' || !req.msg || !req.msg.type) return;
+        // Only the active web tab's content script may talk to this panel.
+        if (!sender || !sender.tab || sender.tab.id !== activeWebTabId) return;
+        deliverFrameMessage(req.msg);
+      });
+    } catch (_) {}
+  }
 
   function deliverFrameMessage(msg) {
     // Dispatch to appropriate tab handler
@@ -85,7 +133,7 @@
   });
 
   (function fetchFrameToken(attempt) {
-    const B = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
+    if (NATIVE) return; // no postMessage path in native mode — nothing to authenticate
     let p;
     try { p = B.runtime.sendMessage({ type: 'FRAME_TOKEN_GET' }); } catch (err) { p = Promise.reject(err); }
     Promise.resolve(p).then((r) => {
@@ -276,14 +324,18 @@
 
   // Helper: send message to content script (parent frame)
   window.sendToContent = function(type, payload = {}) {
-    window.parent.postMessage({ type, ...payload }, '*');
+    const msg = { type, ...payload };
+    if (!NATIVE) { window.parent.postMessage(msg, '*'); return; }
+    if (activeWebTabId === null) { console.warn('[DANMAN Sidebar] No active web tab for', type); return; }
+    let p;
+    try { p = B.tabs.sendMessage(activeWebTabId, { type: 'GPD_SIDEBAR_MSG', msg }); } catch (err) { p = Promise.reject(err); }
+    Promise.resolve(p).catch((err) => console.debug('[DANMAN Sidebar] sendToContent failed:', type, (err && err.message) || err));
   };
 
   // Helper: copy text to clipboard via content script. Goes over runtime
   // messaging so the host page cannot read what is being copied; falls back
   // to the parent postMessage route only when the tab id is unknown.
   window.copyToClipboard = function(text) {
-    const B = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
     if (hostTabId === null || !B.tabs || !B.tabs.sendMessage) {
       window.parent.postMessage({ type: 'GPD_COPY_TO_CLIPBOARD', text }, '*');
       return;

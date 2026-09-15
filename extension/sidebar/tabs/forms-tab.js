@@ -1,8 +1,9 @@
 /**
- * VERSION: V003R022
+ * VERSION: V004R018
  * DATE: 2026-09-15
- * CHANGE: Autofill session stamped with target_origin (host tab origin) when armed; warns if it cannot be read
+ * CHANGE: Sends via window.sendToContent
  * HISTORY:
+ *   V003R022 2026-09-15 Autofill session stamped with target_origin (host tab origin) when armed; warns if it cannot be read
  *   V002R015 2026-09-15 DANMAN_ELEMENT_PICKED read from authenticated gpd-message dispatch
  *   V001R1283 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
@@ -195,7 +196,7 @@
     progressBar.update(1, 'Scanning page for forms...');
 
     const includeHidden = document.getElementById('forms-include-hidden').checked;
-    window.parent.postMessage({ type: 'GPD_REQUEST_FORMS', includeHidden }, '*');
+    window.sendToContent('GPD_REQUEST_FORMS', { includeHidden });
 
     // Timeout fallback
     setTimeout(() => {
@@ -257,10 +258,9 @@
   // Autofill button
   document.getElementById('btn-autofill').addEventListener('click', () => {
     if (!selectedTemplate || !templates[selectedTemplate]) return Toast.warning('No template selected');
-    window.parent.postMessage({
-      type: 'GPD_AUTOFILL',
+    window.sendToContent('GPD_AUTOFILL', {
       data: templates[selectedTemplate]
-    }, '*');
+    });
     Toast.success('Autofill data sent to page');
   });
 
@@ -968,12 +968,12 @@
 
   document.getElementById('btn-inject-next')?.addEventListener('click', () => {
     saveAutofillSession();
-    window.parent.postMessage({ type: 'DANMAN_INJECT_NEXT' }, '*');
+    window.sendToContent('DANMAN_INJECT_NEXT');
   });
 
   document.getElementById('btn-inject-all')?.addEventListener('click', () => {
     saveAutofillSession();
-    window.parent.postMessage({ type: 'DANMAN_INJECT_ALL' }, '*');
+    window.sendToContent('DANMAN_INJECT_ALL');
   });
 
   document.getElementById('btn-end-session')?.addEventListener('click', async () => {
@@ -1014,7 +1014,7 @@
 
   // Element picker for submit button
   document.getElementById('btn-pick-submit')?.addEventListener('click', function() {
-    window.parent.postMessage({ type: 'DANMAN_PICK_ELEMENT' }, '*');
+    window.sendToContent('DANMAN_PICK_ELEMENT');
     this.textContent = 'Click the button on the page...';
     this.style.background = '#f59e0b';
     this.style.color = '#0f172a';

@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R015
+ * DATE: 2026-09-15
+ * CHANGE: Sends via window.sendToContent
+ * HISTORY:
+ *   V001R1354 2026-08-26 Baseline import (unstamped)
+ */
 // sidebar/tabs/macros-tab.js — Macro Recorder / Editor / Runner (Phase 7)
 // Self-contained tab matching v4.6 conventions:
 //   - container = document.getElementById('tab-macros')
@@ -994,7 +1001,7 @@
   async function finishScreenPickMode() {
     var sid = screenPickSessionId;
     screenPickSessionId = null;
-    window.parent.postMessage({ type: 'GPD_SIDEBAR_PICK_STOP' }, '*');
+    window.sendToContent('GPD_SIDEBAR_PICK_STOP');
     await call('SCREEN_PICK_CANCEL', { sessionId: sid || undefined });
   }
 
@@ -1074,7 +1081,7 @@
       return;
     }
     screenPickSessionId = r.data && r.data.sessionId;
-    window.parent.postMessage({ type: 'GPD_SIDEBAR_PICK_START' }, '*');
+    window.sendToContent('GPD_SIDEBAR_PICK_START');
     setStatus('Left-click the page to capture coordinates — ESC cancels', 'picking');
     safeToast('info', 'Click once on the page to capture the spot');
   }
@@ -1163,7 +1170,7 @@
     screenPickSessionId = null;
     pendingAddStep = null;
     editingStepIdx = step.type === 'screenClick' ? pendingIdx : null;
-    window.parent.postMessage({ type: 'GPD_SIDEBAR_PICK_STOP' }, '*');
+    window.sendToContent('GPD_SIDEBAR_PICK_STOP');
     await call('SCREEN_PICK_CANCEL', {});
     renderSteps();
     if (step.type === 'screenClick') {
@@ -1198,7 +1205,7 @@
     if (msg.type === 'PICKER_BROADCAST') {
       var sel = msg.selection || {};
       ingestSelection(sel.selector || '', msg.sessionId);
-      window.parent.postMessage({ type: 'GPD_SIDEBAR_PICK_STOP' }, '*');
+      window.sendToContent('GPD_SIDEBAR_PICK_STOP');
       return;
     }
     if (msg.type === 'SCREEN_PICK_MOVE') {

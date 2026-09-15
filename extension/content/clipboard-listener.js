@@ -1,8 +1,9 @@
 /**
- * VERSION: V003R063
+ * VERSION: V004R037
  * DATE: 2026-09-15
- * CHANGE: Sidebar posts go through the shared frame API (frame now inside the closed shadow root); per-site kill switch at init
+ * CHANGE: GPD_PASTE_FROM_SLOT arrives through the authenticated command registry instead of window messages
  * HISTORY:
+ *   V003R063 2026-09-15 Sidebar posts go through the shared frame API (frame now inside the closed shadow root); per-site kill switch at init
  *   V002R046 2026-09-15 Extension-origin check on window messages; frame token on sendToSidebar
  *   V001R690 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
@@ -19,11 +20,6 @@
 
   var B = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
 
-  // Frame trust — see content-main.js. Messages from the sidebar must carry
-  // the extension origin; messages we post to it carry the per-tab token.
-  var EXT_ORIGIN = (function () {
-    try { return String(B.runtime.getURL('')).replace(/\/+$/, ''); } catch (_) { return ''; }
-  })();
 
   // ============================================================================
   // STATE — Last focused editable element (tracked before sidebar steals focus)
@@ -432,22 +428,19 @@
   // ============================================================================
 
   function setupMessageListener() {
-    // Listen for postMessage from sidebar iframe (legacy path + clipboard captures).
-    // Only extension-origin frames — the host page shares this window.
-    window.addEventListener('message', function(event) {
-      try {
-        if (!EXT_ORIGIN || event.origin !== EXT_ORIGIN) return;
-        var msg = event.data;
-        if (!msg || typeof msg !== 'object') return;
-
-        // Legacy paste from sidebar — still supported as fallback
-        if (msg.type === 'GPD_PASTE_FROM_SLOT') {
-          handlePasteFromServiceWorker(msg);
-        }
-      } catch (err) {
-        console.error('[DANMAN Clipboard] window message listener error:', err);
+    // Legacy paste from the sidebar. Commands come through content-main.js's
+    // authenticated dispatch (embedded token/origin checks or the native
+    // runtime transport) — never from raw window events the page could forge.
+    try {
+      var api = window.__danmanFrame;
+      if (api && api.subscribe) {
+        api.subscribe(function(msg) {
+          if (msg && msg.type === 'GPD_PASTE_FROM_SLOT') handlePasteFromServiceWorker(msg);
+        });
       }
-    });
+    } catch (err) {
+      console.error('[DANMAN Clipboard] sidebar subscription error:', err);
+    }
 
     // Listen for messages from service worker (primary paste path + cross-tab sync)
     try {

@@ -1,8 +1,9 @@
 /**
- * VERSION: V004R025
+ * VERSION: V005R027
  * DATE: 2026-09-15
- * CHANGE: Clip history pruned to clipboard.retention_minutes on load
+ * CHANGE: toggleNativeSidebar() via sidebarAction; toggle-sidebar command and SIDEBAR_NATIVE_TOGGLE honour gpd_native_sidebar; GPD_TO_SIDEBAR acknowledged
  * HISTORY:
+ *   V004R025 2026-09-15 Clip history pruned to clipboard.retention_minutes on load
  *   V003R018 2026-09-15 Chromium importScripts list mirrors manifest background.scripts (was missing model-catalog, google-ids, master-log, bridge-registry, workbench-parser, soql-engine, security)
  *   V002R070 2026-09-15 Trust-zone gate on the message router, FRAME_TOKEN_GET, webhook URL/redirect checks, crawl/rip fetch-target policy, Salesforce host check, content-zone MACRO_RUN restricted to last macro
  *   V001R4502 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
@@ -233,6 +234,10 @@ async function handleMessage(msg, sender) {
     // Per-tab token the content script and the in-page extension frames use
     // to authenticate their postMessage traffic (see core/security.js).
     case 'FRAME_TOKEN_GET': return DANMAN_Security.handleFrameTokenGet(sender);
+    // Native-sidebar transport (see sidebar.js): content → sidebar page replies
+    // are broadcast to extension pages by runtime messaging; nothing to do here.
+    case 'GPD_TO_SIDEBAR': return { ok: true };
+    case 'SIDEBAR_NATIVE_TOGGLE': return toggleNativeSidebar();
 
     // === WORKBENCH SOQL (v6.9) ===
     case 'SOQL_GET_CATALOG':
@@ -824,12 +829,30 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // KEYBOARD COMMANDS
 // ============================================================
 
+/**
+ * Native sidebar (Firefox sidebar_action). Opt-in via gpd_native_sidebar.
+ * sidebarAction.toggle() only works from a user-input handler — the keyboard
+ * command and the popup qualify, a content-script message does not — so this
+ * reports whether it could open and the caller shows a hint otherwise.
+ */
+async function nativeSidebarEnabled() {
+  const r = await chrome.storage.local.get('gpd_native_sidebar');
+  return !!(r && r.gpd_native_sidebar);
+}
+async function toggleNativeSidebar() {
+  const api = (typeof browser !== 'undefined' && browser.sidebarAction) ? browser.sidebarAction : null;
+  if (!api) return { ok: false, reason: 'no sidebarAction API (use the toolbar button)' };
+  try { await api.toggle(); return { ok: true }; }
+  catch (e) { return { ok: false, reason: (e && e.message) || String(e) }; }
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tabs[0] || !tabs[0].id) return;
 
   switch (command) {
     case 'toggle-sidebar':
+      if (await nativeSidebarEnabled()) { const r = await toggleNativeSidebar(); if (r.ok) break; }
       await sendMessageToTab(tabs[0].id, { type: 'TOGGLE_SIDEBAR' });
       break;
     case 'toggle-eject':

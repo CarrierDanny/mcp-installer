@@ -205,6 +205,37 @@ async function main() {
   verdict('per-site disable: no DANMAN UI or clipboard listener on a disabled origin', hostWhileDisabled === false && !clipInit && disabledLog, 'host=' + hostWhileDisabled + ' clipInit=' + clipInit + ' disabledLog=' + disabledLog);
   await sw.evaluate(() => chrome.storage.local.remove('gpd_disabled_sites'));
 
+  // Native sidebar mode (opt-in): no in-page iframe at all; the sidebar page
+  // talks to the active web tab over runtime messaging. Chromium has no
+  // sidebar_action, so the panel is simulated by opening sidebar.html as a tab.
+  await sw.evaluate(() => chrome.storage.local.set({ gpd_native_sidebar: true }));
+  await page.reload(); await sleep(1500);
+  await page.mouse.click(vp.width - 12, Math.round(vp.height / 2)); await sleep(1200);
+  const iframeInNative = page.frames().some((f) => f.url().includes('sidebar/sidebar.html'));
+  verdict('native mode: trigger click creates no in-page sidebar iframe', !iframeInNative);
+  const sbPage = await ctx.newPage();
+  const sbLogs = []; sbPage.on('console', (m) => sbLogs.push(m.text())); sbPage.on('pageerror', (e) => sbLogs.push('pageerror: ' + e.message));
+  await T('native-sidebar-page', sbPage.goto('chrome-extension://' + extId + '/sidebar/sidebar.html')); await sleep(1000);
+  const isNative = await sbPage.evaluate(() => document.documentElement.hasAttribute('data-danman-native'));
+  await page.bringToFront(); await sleep(1000); // the hostile page becomes the active web tab
+  await sbPage.evaluate(() => { window.__got = []; window.addEventListener('gpd-message', (e) => window.__got.push(e.detail.type)); });
+  const nativeTab = await sbPage.evaluate(() => window.DANMAN_hostTabId);
+  await sbPage.evaluate(() => window.sendToContent('GPD_REQUEST_SCRAPE')); await sleep(1500);
+  const gotNative = await sbPage.evaluate(() => window.__got.slice());
+  verdict('native mode: sidebar page ↔ content round trip over runtime messaging', isNative && gotNative.includes('GPD_SCRAPE_RESULT'), 'native=' + isNative + ' hostTab=' + nativeTab + ' got=' + gotNative.join(','));
+  // A reply from a tab that is not the active web tab must be ignored
+  await sbPage.evaluate(() => { window.__got = []; });
+  const spoof = await sw.evaluate(async () => { const t = await chrome.tabs.create({ url: 'about:blank', active: false }); return t.id; });
+  await sw.evaluate((id) => chrome.scripting.executeScript({ target: { tabId: id }, func: () => chrome.runtime.sendMessage({ type: 'GPD_TO_SIDEBAR', msg: { type: 'GPD_SWITCH_TAB', tab: 'settings' } }) }).catch(() => null), spoof).catch(() => {});
+  await sleep(800);
+  const gotSpoof = await sbPage.evaluate(() => window.__got.slice());
+  verdict('native mode: replies from a non-active tab are ignored', gotSpoof.length === 0, 'got=' + gotSpoof.join(','));
+  await sw.evaluate((id) => chrome.tabs.remove(id), spoof).catch(() => {});
+  const sbErrors = sbLogs.filter((l) => /pageerror|is not a function|Frame token unavailable/.test(l));
+  verdict('native mode: sidebar page loads without errors', sbErrors.length === 0, sbErrors.slice(0, 2).join(' || '));
+  await sbPage.close();
+  await sw.evaluate(() => chrome.storage.local.remove('gpd_native_sidebar'));
+
   const swErrors = swLogs.filter((l) => /\[sw:error\]/.test(l) && !/Unknown message type|API key|not configured|Refused/i.test(l));
   const pageErrors = pageLogs.filter((l) => /^\[pageerror\]|^\[error\]/.test(l) && !/Unknown message type|Receiving end|Extension context|net::ERR|Failed to load resource|Macro|DANMAN_CHAT|API key|clipboard|Popout/i.test(l));
   verdict('no unexpected service-worker errors', swErrors.length === 0, swErrors.slice(0, 3).join(' || '));

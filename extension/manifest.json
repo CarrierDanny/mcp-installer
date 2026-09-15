@@ -89,6 +89,15 @@
       "128": "icons/icon128.png"
     }
   },
+  "sidebar_action": {
+    "default_panel": "sidebar/sidebar.html",
+    "default_title": "DANMAN",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    },
+    "open_at_install": false
+  },
   "options_ui": {
     "page": "options/options.html",
     "open_in_tab": true
