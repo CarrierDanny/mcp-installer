@@ -1,6 +1,9 @@
 # CHANGELOG
 
 ## 2026-09-15
+- extension/content/content-main.js V003R016 — Share frame helpers with the form-fill IIFE (fixed ReferenceError on every window message); sidebar-sourced DANMAN_FLOAT_OPEN handled once
+- extension/background/service-worker.js V003R018 — Chromium importScripts list mirrors manifest background.scripts (was missing model-catalog, google-ids, master-log, bridge-registry, workbench-parser, soql-engine, security)
+- test/smoke-chromium.js (new) — Standalone Chromium smoke test: boots the extension, runs the hostile-page harness + legitimate flows, time-boxed
 - extension/background/core/security.js V001R220 — Initial creation — trust zones, frame tokens, URL policy for the background
 - extension/background/service-worker.js V002R070 — Trust-zone gate on the message router, FRAME_TOKEN_GET, webhook URL/redirect checks, crawl/rip fetch-target policy, Salesforce host check, content-zone MACRO_RUN restricted to last macro
 - extension/background/core/api.js V002R013 — Gemini API key moved from query string to x-goog-api-key header

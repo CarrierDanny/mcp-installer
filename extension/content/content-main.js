@@ -1,8 +1,9 @@
 /**
- * VERSION: V002R108
+ * VERSION: V003R016
  * DATE: 2026-09-15
- * CHANGE: isTrusted gates on trigger/hover/slot clicks; extension-origin check on every frame message; per-tab frame token on messages into frames; GPD_COPY_TO_CLIPBOARD over runtime messaging
+ * CHANGE: Share frame helpers with the form-fill IIFE (fixed ReferenceError on every window message); sidebar-sourced DANMAN_FLOAT_OPEN handled once
  * HISTORY:
+ *   V002R108 2026-09-15 isTrusted gates on trigger/hover/slot clicks; extension-origin check on every frame message; per-tab frame token on messages into frames; GPD_COPY_TO_CLIPBOARD over runtime messaging
  *   V001R1344 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
 // content/content-main.js — GetPower DANMAN Content Script
@@ -63,6 +64,10 @@
     });
   }
   function postToSidebar(msg) { postToFrame(sidebarFrame, msg); }
+  // The form-fill engine below lives in its own IIFE; share the frame helpers
+  // through the content-script world's window (invisible to page scripts —
+  // isolated world in Chromium, Xray expando in Firefox).
+  try { Object.defineProperty(window, '__danmanFrame', { value: { fromExtensionFrame, postToSidebar } }); } catch (_) {}
 
   // ============================================================
   // MESSAGING
@@ -994,6 +999,9 @@
   window.addEventListener('message', (event) => {
     if (!fromExtensionFrame(event)) return;
     if (!event.data || !event.data.type) return;
+    // The sidebar listener below owns the sidebar's messages; handling
+    // DANMAN_FLOAT_OPEN here as well toggled the float twice (open + close).
+    if (sidebarFrame && event.source === sidebarFrame.contentWindow) return;
     const floatType = event.data.type;
 
     if (floatType === 'DANMAN_FLOAT_CLOSE') {
@@ -1194,6 +1202,10 @@
 // FORM FILL INJECTION ENGINE
 // ============================================================
 (function initFormFillEngine() {
+  // Frame helpers shared by the main content-script IIFE above.
+  const frameApi = window.__danmanFrame || null;
+  function fromExtensionFrame(event) { return !!frameApi && frameApi.fromExtensionFrame(event); }
+  function postToSidebar(msg) { if (frameApi) frameApi.postToSidebar(msg); }
   let session = null;
   let fieldQueue = [];
   let currentFieldIndex = 0;

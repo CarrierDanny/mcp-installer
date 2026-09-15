@@ -1,18 +1,24 @@
 /**
- * VERSION: V002R070
+ * VERSION: V003R018
  * DATE: 2026-09-15
- * CHANGE: Trust-zone gate on the message router, FRAME_TOKEN_GET, webhook URL/redirect checks, crawl/rip fetch-target policy, Salesforce host check, content-zone MACRO_RUN restricted to last macro
+ * CHANGE: Chromium importScripts list mirrors manifest background.scripts (was missing model-catalog, google-ids, master-log, bridge-registry, workbench-parser, soql-engine, security)
  * HISTORY:
+ *   V002R070 2026-09-15 Trust-zone gate on the message router, FRAME_TOKEN_GET, webhook URL/redirect checks, crawl/rip fetch-target policy, Salesforce host check, content-zone MACRO_RUN restricted to last macro
  *   V001R4502 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
 // background/service-worker.js — GetPower DANMAN Service Worker
 
-// Load core modules - Chrome uses importScripts, Firefox uses manifest scripts
+// Load core modules - Chrome uses importScripts, Firefox uses manifest scripts.
+// Keep this list identical (in order) to manifest.json background.scripts,
+// resolved relative to this file — a stale list breaks the Chromium boot.
 if (typeof importScripts === 'function') {
   importScripts(
     'core/browser.js',
     'core/utils.js',
+    'core/security.js',
     'core/dms-utils.js',
+    '../core/model-catalog.js',
+    '../core/google-ids.js',
     'core/config.js',
     'core/storage.js',
     'core/api.js',
@@ -21,11 +27,15 @@ if (typeof importScripts === 'function') {
     'core/memory.js',
     'core/setup-wizard.js',
     'core/dms-adapters.js',
+    'core/master-log.js',
+    'core/bridge-registry.js',
     'template-engine.js',
     'ocr-engine.js',
     'gcp-toolkit.js',
     'macro-engine.js',
-    'danman-gas-bridge.js'
+    'danman-gas-bridge.js',
+    'workbench-parser.js',
+    'soql-engine.js'
   );
 }
 
