@@ -1,6 +1,8 @@
 # CHANGELOG
 
 ## 2026-09-15
+- extension/background/core/bridge-registry.js V003R010 — driveProfile() ignores a routed profile that does not advertise Drive support (legacy migration routed every verb to the old backend → "Unknown action: drive_list")
+- extension/background/core/master-log.js V002R021 — "Sheet not found" stops the re-queue loop and warns once that the DANMAN_LOG tab is missing
 - extension/sidebar/sidebar.js V004R068 — Native host mode: detects top-level (browser sidebar) vs embedded, tracks the active web tab, sends over tabs.sendMessage and accepts GPD_TO_SIDEBAR only from that tab; header buttons adapt
 - extension/content/content-main.js V005R092 — Native-sidebar transport: GPD_SIDEBAR_MSG route, postToSidebar over runtime messaging, sidebar command registry for other IIFEs, handleSidebarMessage extracted, element picker as a function, hint toast when the panel needs a user gesture
 - extension/content/clipboard-listener.js V004R037 — GPD_PASTE_FROM_SLOT arrives through the authenticated command registry instead of window messages

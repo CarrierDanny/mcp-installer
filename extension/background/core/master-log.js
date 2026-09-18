@@ -1,3 +1,10 @@
+/**
+ * VERSION: V002R021
+ * DATE: 2026-09-15
+ * CHANGE: "Sheet not found" stops the re-queue loop and warns once that the DANMAN_LOG tab is missing
+ * HISTORY:
+ *   V001R107 2026-08-26 Baseline import (unstamped)
+ */
 // background/core/master-log.js — session/audit trail to the ONE master sheet.
 // Everything worth monitoring lands as rows in the DANMAN_LOG tab of the
 // master spreadsheet (config.sheets.spreadsheet_id — deliberately a single
@@ -43,7 +50,19 @@
       }
       await globalThis.handleSheetsAppend({ range: RANGE, values: rows });
     } catch (e) {
-      console.warn('[MasterLog] flush failed (rows re-queued once):', e.message);
+      const msg = String((e && e.message) || e);
+      if (/sheet not found/i.test(msg)) {
+        // The master spreadsheet has no DANMAN_LOG tab. Retrying every 20 s
+        // just fills the bridge log with the same error — drop the rows and
+        // say once what fixes it.
+        if (!globalThis.__masterLogTabWarned) {
+          globalThis.__masterLogTabWarned = true;
+          console.warn('[MasterLog] Master spreadsheet has no "DANMAN_LOG" tab — add a sheet named DANMAN_LOG to it (Settings → Integrations → master spreadsheet). Session rows are dropped until then.');
+        }
+        flushing = false;
+        return;
+      }
+      console.warn('[MasterLog] flush failed (rows re-queued once):', msg);
       if (!rows._requeued) {
         rows._requeued = true;
         buffer = rows.concat(buffer).slice(0, 200);

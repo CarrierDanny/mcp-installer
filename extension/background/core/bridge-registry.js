@@ -1,8 +1,9 @@
 /**
- * VERSION: V002R014
+ * VERSION: V003R010
  * DATE: 2026-09-15
- * CHANGE: Bridge URLs must pass the endpoint policy on save and post; redirect host verified
+ * CHANGE: driveProfile() ignores a routed profile that does not advertise Drive support (legacy migration routed every verb to the old backend → "Unknown action: drive_list")
  * HISTORY:
+ *   V002R014 2026-09-15 Bridge URLs must pass the endpoint policy on save and post; redirect host verified
  *   V001R472 2026-08-26 Baseline import + Firefox messaging/clipboard fixes (unstamped)
  */
 // background/core/bridge-registry.js — Universal Bridge.
@@ -362,6 +363,11 @@
       const enabled = bridges.filter((b) => b.enabled !== false);
       const routed = routing['drive'];
       let profile = (routed && routed !== 'auto') ? findProfile(enabled, routed) : null;
+      // The legacy-backend migration routes every verb to the old webhook,
+      // including Drive. A backend without Bridge_Drive.gs answers every
+      // drive_* call with "Unknown action", so only honour the routing when
+      // that profile actually advertises Drive support.
+      if (profile && !supportsVerb(profile, tools, 'drive')) profile = null;
       if (!profile) profile = enabled.find((b) => supportsVerb(b, tools, 'drive')) || null;
       return profile;
     },
